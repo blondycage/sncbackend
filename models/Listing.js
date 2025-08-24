@@ -191,6 +191,24 @@ const listingSchema = new mongoose.Schema({
       message: 'Image URL must be a non-empty string'
     }
   }],
+
+  // Optional YouTube video URL
+  video_url: {
+    type: String,
+    trim: true,
+    validate: {
+      validator: function(v) {
+        if (!v) return true;
+        try {
+          const url = new URL(v);
+          return typeof v === 'string' && v.length > 0 && /^https?:$/.test(url.protocol);
+        } catch {
+          return false;
+        }
+      },
+      message: 'Video URL must be a valid URL'
+    }
+  },
   
   // Automatically set fields
   is_paid: {

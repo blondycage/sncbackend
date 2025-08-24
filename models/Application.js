@@ -1,41 +1,37 @@
 const mongoose = require('mongoose');
 
-const applicationSchema = new mongoose.Schema({
+const ApplicationSchema = new mongoose.Schema({
+  applicationId: {
+    type: String,
+    unique: true,
+    required: true
+  },
   applicant: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: [true, 'Applicant is required']
+    required: true
   },
   program: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'EducationalProgram',
-    required: [true, 'Educational program is required']
-  },
-  applicationId: {
-    type: String,
-    unique: true,
-    required: [true, 'Application ID is required']
+    required: true
   },
   personalInfo: {
     firstName: {
       type: String,
       required: [true, 'First name is required'],
-      trim: true,
-      maxlength: [50, 'First name cannot exceed 50 characters']
+      trim: true
     },
     lastName: {
       type: String,
       required: [true, 'Last name is required'],
-      trim: true,
-      maxlength: [50, 'Last name cannot exceed 50 characters']
+      trim: true
     },
     email: {
       type: String,
       required: [true, 'Email is required'],
-      match: [
-        /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
-        'Please enter a valid email'
-      ]
+      trim: true,
+      lowercase: true
     },
     phone: {
       type: String,
@@ -51,60 +47,34 @@ const applicationSchema = new mongoose.Schema({
       required: [true, 'Nationality is required'],
       trim: true
     },
+    passportNumber: {
+      type: String,
+      trim: true
+    },
     address: {
-      street: {
-        type: String,
-        trim: true
-      },
-      city: {
-        type: String,
-        required: [true, 'City is required'],
-        trim: true
-      },
-      state: {
-        type: String,
-        trim: true
-      },
-      country: {
-        type: String,
-        required: [true, 'Country is required'],
-        trim: true
-      },
-      postalCode: {
-        type: String,
-        trim: true
-      }
+      street: String,
+      city: String,
+      state: String,
+      postalCode: String,
+      country: String
     },
     emergencyContact: {
-      name: {
-        type: String,
-        required: [true, 'Emergency contact name is required'],
-        trim: true
-      },
-      relationship: {
-        type: String,
-        required: [true, 'Emergency contact relationship is required'],
-        trim: true
-      },
-      phone: {
-        type: String,
-        required: [true, 'Emergency contact phone is required'],
-        trim: true
-      }
+      name: String,
+      relationship: String,
+      phone: String,
+      email: String
     }
   },
   familyInfo: {
     fatherName: {
       type: String,
       required: [true, 'Father name is required'],
-      trim: true,
-      maxlength: [100, 'Father name cannot exceed 100 characters']
+      trim: true
     },
     motherName: {
       type: String,
       required: [true, 'Mother name is required'],
-      trim: true,
-      maxlength: [100, 'Mother name cannot exceed 100 characters']
+      trim: true
     },
     fatherOccupation: {
       type: String,
@@ -113,6 +83,10 @@ const applicationSchema = new mongoose.Schema({
     motherOccupation: {
       type: String,
       trim: true
+    },
+    familyIncome: {
+      type: String,
+      enum: ['below_25000', '25000_50000', '50000_75000', '75000_100000', 'above_100000', 'prefer_not_to_say']
     }
   },
   academicBackground: {
@@ -122,279 +96,55 @@ const applicationSchema = new mongoose.Schema({
         required: [true, 'High school name is required'],
         trim: true
       },
+      city: String,
+      country: String,
       graduationYear: {
         type: Number,
-        required: [true, 'High school graduation year is required'],
+        required: [true, 'Graduation year is required'],
         min: 1950,
-        max: new Date().getFullYear() + 5
+        max: new Date().getFullYear() + 1
       },
-      country: {
-        type: String,
-        required: [true, 'High school country is required'],
-        trim: true
-      }
-    },
-    waecNeco: {
-      hasResults: {
-        type: Boolean,
-        default: false
-      },
-      credits: {
+      gpa: {
         type: Number,
         min: 0,
-        max: 10
+        max: 100
       },
-      subjects: [{
-        name: {
-          type: String,
-          trim: true
-        },
-        grade: {
-          type: String,
-          trim: true
-        }
+      gradeScale: {
+        type: String,
+        enum: ['percentage', '4.0', '5.0', 'other']
+      }
+    },
+    previousEducation: [{
+      institution: String,
+      degree: String,
+      field: String,
+      graduationYear: Number,
+      gpa: Number,
+      gradeScale: String
+    }],
+    standardizedTests: {
+      sat: {
+        score: Number,
+        date: Date
+      },
+      act: {
+        score: Number,
+        date: Date
+      },
+      toefl: {
+        score: Number,
+        date: Date
+      },
+      ielts: {
+        score: Number,
+        date: Date
+      },
+      other: [{
+        testName: String,
+        score: String,
+        date: Date
       }]
-    },
-    undergraduate: {
-      institution: {
-        type: String,
-        trim: true
-      },
-      degree: {
-        type: String,
-        trim: true
-      },
-      fieldOfStudy: {
-        type: String,
-        trim: true
-      },
-      graduationYear: {
-        type: Number,
-        min: 1950,
-        max: new Date().getFullYear() + 5
-      },
-      gpa: {
-        type: Number,
-        min: 0,
-        max: 4.0
-      },
-      country: {
-        type: String,
-        trim: true
-      }
-    },
-    postgraduate: {
-      institution: {
-        type: String,
-        trim: true
-      },
-      degree: {
-        type: String,
-        trim: true
-      },
-      fieldOfStudy: {
-        type: String,
-        trim: true
-      },
-      graduationYear: {
-        type: Number,
-        min: 1950,
-        max: new Date().getFullYear() + 5
-      },
-      gpa: {
-        type: Number,
-        min: 0,
-        max: 4.0
-      },
-      country: {
-        type: String,
-        trim: true
-      }
     }
-  },
-  documents: {
-    passportIdDatapage: {
-      uploaded: {
-        type: Boolean,
-        default: false
-      },
-      url: {
-        type: String,
-        trim: true
-      },
-      verified: {
-        type: Boolean,
-        default: false
-      }
-    },
-    passportPhotograph: {
-      uploaded: {
-        type: Boolean,
-        default: false
-      },
-      url: {
-        type: String,
-        trim: true
-      },
-      verified: {
-        type: Boolean,
-        default: false
-      }
-    },
-    highSchoolTranscript: {
-      uploaded: {
-        type: Boolean,
-        default: false
-      },
-      url: {
-        type: String,
-        trim: true
-      },
-      verified: {
-        type: Boolean,
-        default: false
-      }
-    },
-    waecNecoResults: {
-      uploaded: {
-        type: Boolean,
-        default: false
-      },
-      url: {
-        type: String,
-        trim: true
-      },
-      verified: {
-        type: Boolean,
-        default: false
-      }
-    },
-    bachelorDiploma: {
-      uploaded: {
-        type: Boolean,
-        default: false
-      },
-      url: {
-        type: String,
-        trim: true
-      },
-      verified: {
-        type: Boolean,
-        default: false
-      }
-    },
-    bachelorTranscript: {
-      uploaded: {
-        type: Boolean,
-        default: false
-      },
-      url: {
-        type: String,
-        trim: true
-      },
-      verified: {
-        type: Boolean,
-        default: false
-      }
-    },
-    masterDiploma: {
-      uploaded: {
-        type: Boolean,
-        default: false
-      },
-      url: {
-        type: String,
-        trim: true
-      },
-      verified: {
-        type: Boolean,
-        default: false
-      }
-    },
-    masterTranscript: {
-      uploaded: {
-        type: Boolean,
-        default: false
-      },
-      url: {
-        type: String,
-        trim: true
-      },
-      verified: {
-        type: Boolean,
-        default: false
-      }
-    },
-    cv: {
-      uploaded: {
-        type: Boolean,
-        default: false
-      },
-      url: {
-        type: String,
-        trim: true
-      },
-      verified: {
-        type: Boolean,
-        default: false
-      }
-    },
-    researchProposal: {
-      uploaded: {
-        type: Boolean,
-        default: false
-      },
-      url: {
-        type: String,
-        trim: true
-      },
-      verified: {
-        type: Boolean,
-        default: false
-      }
-    },
-    englishProficiency: {
-      uploaded: {
-        type: Boolean,
-        default: false
-      },
-      url: {
-        type: String,
-        trim: true
-      },
-      testType: {
-        type: String,
-        enum: ['ielts', 'toefl', 'toeic', 'institutional_test', 'other']
-      },
-      score: {
-        type: String,
-        trim: true
-      },
-      verified: {
-        type: Boolean,
-        default: false
-      }
-    },
-    additional: [{
-      name: {
-        type: String,
-        required: true,
-        trim: true
-      },
-      url: {
-        type: String,
-        required: true,
-        trim: true
-      },
-      uploaded: {
-        type: Boolean,
-        default: true
-      },
-      verified: {
-        type: Boolean,
-        default: false
-      }
-    }]
   },
   applicationInfo: {
     intendedStartSemester: {
@@ -405,57 +155,111 @@ const applicationSchema = new mongoose.Schema({
     intendedStartYear: {
       type: Number,
       required: [true, 'Intended start year is required'],
-      min: new Date().getFullYear(),
-      max: new Date().getFullYear() + 5
-    },
-    previousApplications: {
-      type: Boolean,
-      default: false
-    },
-    previousApplicationDetails: {
-      type: String,
-      maxlength: [500, 'Previous application details cannot exceed 500 characters']
+      min: new Date().getFullYear()
     },
     motivation: {
       type: String,
       required: [true, 'Motivation statement is required'],
       maxlength: [2000, 'Motivation statement cannot exceed 2000 characters']
     },
-    scholarshipInterest: {
-      type: Boolean,
-      default: false
-    },
-    scholarshipDetails: {
+    careerGoals: {
       type: String,
-      maxlength: [1000, 'Scholarship details cannot exceed 1000 characters']
-    }
+      maxlength: [1000, 'Career goals cannot exceed 1000 characters']
+    },
+    whyThisProgram: {
+      type: String,
+      maxlength: [1000, 'Why this program cannot exceed 1000 characters']
+    },
+    extracurricularActivities: {
+      type: String,
+      maxlength: [1000, 'Extracurricular activities cannot exceed 1000 characters']
+    },
+    workExperience: [{
+      company: String,
+      position: String,
+      startDate: Date,
+      endDate: Date,
+      description: String,
+      isCurrent: Boolean
+    }],
+    volunteerExperience: [{
+      organization: String,
+      role: String,
+      startDate: Date,
+      endDate: Date,
+      description: String
+    }],
+    awards: [{
+      title: String,
+      organization: String,
+      date: Date,
+      description: String
+    }],
+    references: [{
+      name: String,
+      title: String,
+      organization: String,
+      email: String,
+      phone: String,
+      relationship: String
+    }]
+  },
+  documents: {
+    passport: {
+      uploaded: { type: Boolean, default: false },
+      url: String,
+      verified: { type: Boolean, default: false }
+    },
+    highSchoolDiploma: {
+      uploaded: { type: Boolean, default: false },
+      url: String,
+      verified: { type: Boolean, default: false }
+    },
+    transcripts: {
+      uploaded: { type: Boolean, default: false },
+      url: String,
+      verified: { type: Boolean, default: false }
+    },
+    languageTest: {
+      uploaded: { type: Boolean, default: false },
+      url: String,
+      verified: { type: Boolean, default: false }
+    },
+    personalStatement: {
+      uploaded: { type: Boolean, default: false },
+      url: String,
+      verified: { type: Boolean, default: false }
+    },
+    recommendationLetters: {
+      uploaded: { type: Boolean, default: false },
+      url: String,
+      verified: { type: Boolean, default: false }
+    },
+    portfolio: {
+      uploaded: { type: Boolean, default: false },
+      url: String,
+      verified: { type: Boolean, default: false }
+    },
+    additional: [{
+      name: String,
+      url: String,
+      uploaded: { type: Boolean, default: false },
+      verified: { type: Boolean, default: false }
+    }]
   },
   status: {
     type: String,
-    required: [true, 'Application status is required'],
-    enum: {
-      values: [
-        'draft', 'submitted', 'under_review', 'documents_required',
-        'approved', 'conditionally_approved', 'rejected', 'withdrawn',
-        'enrolled', 'deferred'
-      ],
-      message: 'Invalid application status'
-    },
+    enum: [
+      'draft', 'submitted', 'under_review', 'documents_required',
+      'approved', 'conditionally_approved', 'rejected', 'withdrawn',
+      'enrolled', 'deferred'
+    ],
     default: 'draft'
   },
   timeline: [{
-    status: {
-      type: String,
-      required: true
-    },
-    timestamp: {
-      type: Date,
-      default: Date.now
-    },
-    notes: {
-      type: String,
-      maxlength: [500, 'Timeline notes cannot exceed 500 characters']
-    },
+    status: String,
+    date: { type: Date, default: Date.now },
+    notes: String,
     updatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
@@ -464,217 +268,122 @@ const applicationSchema = new mongoose.Schema({
   reviewNotes: [{
     reviewer: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true
+      ref: 'User'
     },
-    notes: {
-      type: String,
-      required: [true, 'Review notes are required'],
-      maxlength: [2000, 'Review notes cannot exceed 2000 characters']
-    },
+    notes: String,
     recommendation: {
       type: String,
-      enum: ['approve', 'reject', 'request_documents', 'conditionally_approve'],
-      required: [true, 'Recommendation is required']
+      enum: ['approve', 'reject', 'conditionally_approve', 'request_documents']
     },
     timestamp: {
       type: Date,
       default: Date.now
     }
   }],
-  submittedAt: {
-    type: Date
-  },
-  reviewedAt: {
-    type: Date
-  },
-  decisionDate: {
-    type: Date
-  },
-  enrollmentDeadline: {
-    type: Date
-  },
-  fees: {
-    applicationFee: {
-      amount: {
-        type: Number,
-        default: 0
-      },
-      currency: {
-        type: String,
-        default: 'USD'
-      },
-      paid: {
-        type: Boolean,
-        default: false
-      },
-      paidAt: {
-        type: Date
-      }
+  admissionDecision: {
+    decision: {
+      type: String,
+      enum: ['accepted', 'rejected', 'waitlisted', 'conditional']
     },
-    tuitionDeposit: {
-      amount: {
-        type: Number,
-        default: 0
-      },
-      currency: {
-        type: String,
-        default: 'USD'
-      },
-      paid: {
-        type: Boolean,
-        default: false
-      },
-      paidAt: {
-        type: Date
-      }
-    }
-  },
-  communicationPreferences: {
-    email: {
-      type: Boolean,
-      default: true
-    },
-    phone: {
+    conditions: [String],
+    scholarshipOffered: {
       type: Boolean,
       default: false
     },
-    sms: {
-      type: Boolean,
-      default: false
-    }
+    scholarshipAmount: Number,
+    scholarshipType: String,
+    decisionDate: Date,
+    responseDeadline: Date,
+    decisionLetter: String
   },
-  metadata: {
-    source: {
-      type: String,
-      enum: ['website', 'agent', 'referral', 'social_media', 'other'],
-      default: 'website'
-    },
-    referralCode: {
-      type: String,
-      trim: true
-    },
-    notes: {
-      type: String,
-      maxlength: [1000, 'Metadata notes cannot exceed 1000 characters']
-    }
+  submittedAt: Date,
+  lastModified: {
+    type: Date,
+    default: Date.now
   }
 }, {
-  timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  timestamps: true
 });
 
-// Indexes for better query performance
-applicationSchema.index({ applicant: 1, program: 1 });
-applicationSchema.index({ applicationId: 1 }, { unique: true });
-applicationSchema.index({ status: 1 });
-applicationSchema.index({ 'applicationInfo.intendedStartSemester': 1, 'applicationInfo.intendedStartYear': 1 });
-applicationSchema.index({ submittedAt: -1 });
-applicationSchema.index({ createdAt: -1 });
+// Index for efficient queries
+ApplicationSchema.index({ applicant: 1 });
+ApplicationSchema.index({ program: 1 });
+ApplicationSchema.index({ status: 1 });
+ApplicationSchema.index({ createdAt: -1 });
+ApplicationSchema.index({ submittedAt: -1 });
+ApplicationSchema.index({ applicationId: 1 });
+
+// Pre-save middleware to generate application ID
+ApplicationSchema.pre('save', function(next) {
+  if (this.isNew && !this.applicationId) {
+    const year = new Date().getFullYear();
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    this.applicationId = `APP${year}${random}`;
+  }
+  
+  this.lastModified = new Date();
+  next();
+});
+
+// Instance method to submit application
+ApplicationSchema.methods.submit = function() {
+  this.status = 'submitted';
+  this.submittedAt = new Date();
+  this.timeline.push({
+    status: 'submitted',
+    date: new Date(),
+    notes: 'Application submitted by applicant'
+  });
+  return this.save();
+};
+
+// Instance method to update status with timeline
+ApplicationSchema.methods.updateStatus = function(newStatus, notes, updatedBy) {
+  this.status = newStatus;
+  this.timeline.push({
+    status: newStatus,
+    date: new Date(),
+    notes: notes || `Status changed to ${newStatus}`,
+    updatedBy: updatedBy
+  });
+  return this.save();
+};
 
 // Virtual for full name
-applicationSchema.virtual('fullName').get(function() {
+ApplicationSchema.virtual('fullName').get(function() {
   return `${this.personalInfo.firstName} ${this.personalInfo.lastName}`;
 });
 
-// Virtual for documents completion percentage
-applicationSchema.virtual('documentsCompletion').get(function() {
-  const documentFields = Object.keys(this.documents);
-  const uploadedCount = documentFields.reduce((count, field) => {
-    if (field === 'additional') {
-      return count + this.documents.additional.length;
-    }
-    return count + (this.documents[field].uploaded ? 1 : 0);
-  }, 0);
+// Virtual for application progress
+ApplicationSchema.virtual('progress').get(function() {
+  const totalSteps = 5; // personal info, family info, academic background, application info, documents
+  let completedSteps = 0;
   
-  const totalRequired = documentFields.length - 1 + this.documents.additional.length; // -1 for additional field
-  return totalRequired > 0 ? Math.round((uploadedCount / totalRequired) * 100) : 0;
-});
-
-// Pre-save middleware to generate application ID
-applicationSchema.pre('save', async function(next) {
-  if (this.isNew && !this.applicationId) {
-    const year = new Date().getFullYear();
-    const count = await this.constructor.countDocuments({
-      createdAt: {
-        $gte: new Date(year, 0, 1),
-        $lt: new Date(year + 1, 0, 1)
-      }
-    });
-    this.applicationId = `APP-${year}-${String(count + 1).padStart(6, '0')}`;
+  if (this.personalInfo && this.personalInfo.firstName && this.personalInfo.lastName && this.personalInfo.email) {
+    completedSteps++;
   }
-  next();
-});
-
-// Pre-save middleware to update timeline
-applicationSchema.pre('save', function(next) {
-  if (this.isModified('status')) {
-    this.timeline.push({
-      status: this.status,
-      timestamp: new Date(),
-      notes: `Status changed to ${this.status}`
-    });
-    
-    // Set specific timestamps based on status
-    if (this.status === 'submitted' && !this.submittedAt) {
-      this.submittedAt = new Date();
-    } else if (['approved', 'rejected', 'conditionally_approved'].includes(this.status) && !this.decisionDate) {
-      this.decisionDate = new Date();
-    }
+  if (this.familyInfo && this.familyInfo.fatherName && this.familyInfo.motherName) {
+    completedSteps++;
   }
-  next();
+  if (this.academicBackground && this.academicBackground.highSchool && this.academicBackground.highSchool.name) {
+    completedSteps++;
+  }
+  if (this.applicationInfo && this.applicationInfo.motivation) {
+    completedSteps++;
+  }
+  
+  // Check if at least 3 required documents are uploaded
+  const requiredDocs = ['passport', 'highSchoolDiploma', 'transcripts'];
+  const uploadedRequiredDocs = requiredDocs.filter(doc => this.documents[doc] && this.documents[doc].uploaded);
+  if (uploadedRequiredDocs.length >= 3) {
+    completedSteps++;
+  }
+  
+  return Math.round((completedSteps / totalSteps) * 100);
 });
 
-// Static method to get applications by status
-applicationSchema.statics.getByStatus = function(status) {
-  return this.find({ status })
-    .populate('applicant', 'firstName lastName email')
-    .populate('program', 'title institution.name level')
-    .sort({ updatedAt: -1 });
-};
+// Ensure virtual fields are serialized
+ApplicationSchema.set('toJSON', { virtuals: true });
+ApplicationSchema.set('toObject', { virtuals: true });
 
-// Static method to get pending applications
-applicationSchema.statics.getPending = function() {
-  return this.find({ 
-    status: { $in: ['submitted', 'under_review', 'documents_required'] }
-  })
-    .populate('applicant', 'firstName lastName email')
-    .populate('program', 'title institution.name level')
-    .sort({ submittedAt: 1 }); // Oldest first for FIFO processing
-};
-
-// Instance method to submit application
-applicationSchema.methods.submit = function() {
-  this.status = 'submitted';
-  this.submittedAt = new Date();
-  return this.save();
-};
-
-// Instance method to approve application
-applicationSchema.methods.approve = function(reviewerId, notes) {
-  this.status = 'approved';
-  this.decisionDate = new Date();
-  this.reviewNotes.push({
-    reviewer: reviewerId,
-    notes: notes || 'Application approved',
-    recommendation: 'approve',
-    timestamp: new Date()
-  });
-  return this.save();
-};
-
-// Instance method to reject application
-applicationSchema.methods.reject = function(reviewerId, notes) {
-  this.status = 'rejected';
-  this.decisionDate = new Date();
-  this.reviewNotes.push({
-    reviewer: reviewerId,
-    notes: notes || 'Application rejected',
-    recommendation: 'reject',
-    timestamp: new Date()
-  });
-  return this.save();
-};
-
-module.exports = mongoose.model('Application', applicationSchema); 
+module.exports = mongoose.model('Application', ApplicationSchema);

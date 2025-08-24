@@ -280,13 +280,23 @@ jobSchema.index({
   'company.name': 'text'
 });
 
-// Virtual for salary range display
+// Virtual for salary range display (robust against missing fields)
 jobSchema.virtual('salaryRange').get(function() {
-  const { min, max, currency, frequency } = this.salary;
-  if (min === max) {
-    return `${currency} ${min.toLocaleString()}/${frequency}`;
+  const s = this.salary || {};
+  const min = typeof s.min === 'number' ? s.min : null;
+  const max = typeof s.max === 'number' ? s.max : null;
+  const currency = s.currency || 'USD';
+  const frequency = s.frequency || '';
+
+  if (min == null && max == null) return '';
+  if (min != null && max != null) {
+    if (min === max) {
+      return `${currency} ${min.toLocaleString()}${frequency ? `/${frequency}` : ''}`;
+    }
+    return `${currency} ${min.toLocaleString()} - ${max.toLocaleString()}${frequency ? `/${frequency}` : ''}`;
   }
-  return `${currency} ${min.toLocaleString()} - ${max.toLocaleString()}/${frequency}`;
+  const value = (min != null ? min : max);
+  return `${currency} ${value.toLocaleString()}${frequency ? `/${frequency}` : ''}`;
 });
 
 // Virtual for checking if job is still active

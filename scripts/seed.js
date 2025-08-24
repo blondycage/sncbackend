@@ -8,6 +8,7 @@ const sampleListings = [
   {
     title: "Modern Downtown Apartment",
     description: "Luxurious 2-bedroom apartment in the heart of downtown. Features modern amenities, floor-to-ceiling windows, and a stunning city view.",
+    listingType: "real_estate",
     category: "rental",
     price: 2500,
     pricing_frequency: "monthly",
@@ -21,6 +22,7 @@ const sampleListings = [
   {
     title: "Professional Photography Services",
     description: "Expert photography services for events, portraits, and commercial shoots. High-quality equipment and professional editing included.",
+    listingType: "other",
     category: "service",
     price: 150,
     pricing_frequency: "hourly",
@@ -34,6 +36,7 @@ const sampleListings = [
   {
     title: "Vintage Car - 1965 Mustang",
     description: "Classic 1965 Ford Mustang in excellent condition. Original paint, restored interior, and runs perfectly. A true collector's item.",
+    listingType: "vehicle",
     category: "sale",
     price: 45000,
     pricing_frequency: "fixed",
@@ -47,6 +50,7 @@ const sampleListings = [
   {
     title: "Beachfront Villa Rental",
     description: "Stunning beachfront villa with private pool, 4 bedrooms, and direct beach access. Perfect for family vacations or special events.",
+    listingType: "real_estate",
     category: "rental",
     price: 400,
     pricing_frequency: "daily",
@@ -60,6 +64,7 @@ const sampleListings = [
   {
     title: "Web Development Services",
     description: "Professional web development services. Custom websites, e-commerce solutions, and web applications. Modern tech stack and responsive design.",
+    listingType: "other",
     category: "service",
     price: 80,
     pricing_frequency: "hourly",
@@ -73,6 +78,7 @@ const sampleListings = [
   {
     title: "Mountain Bike - Pro Series",
     description: "High-end mountain bike with carbon frame, hydraulic disc brakes, and premium suspension. Perfect for serious riders.",
+    listingType: "vehicle",
     category: "sale",
     price: 2800,
     pricing_frequency: "fixed",
@@ -86,6 +92,7 @@ const sampleListings = [
   {
     title: "Coworking Space Desk",
     description: "Modern coworking space desk in prime location. High-speed internet, coffee, and meeting rooms included.",
+    listingType: "real_estate",
     category: "rental",
     price: 300,
     pricing_frequency: "monthly",
@@ -99,6 +106,7 @@ const sampleListings = [
   {
     title: "Personal Training Sessions",
     description: "Certified personal trainer offering customized workout plans and nutrition advice. In-person or virtual sessions available.",
+    listingType: "other",
     category: "service",
     price: 60,
     pricing_frequency: "hourly",
@@ -112,6 +120,7 @@ const sampleListings = [
   {
     title: "Gaming PC Setup",
     description: "Complete gaming PC setup including high-end GPU, 32GB RAM, RGB peripherals, and 4K monitor. Perfect for serious gamers.",
+    listingType: "other",
     category: "sale",
     price: 3500,
     pricing_frequency: "fixed",
@@ -125,6 +134,7 @@ const sampleListings = [
   {
     title: "Luxury Yacht Charter",
     description: "40ft luxury yacht charter with captain. Perfect for special occasions, sunset cruises, or day trips. Includes water sports equipment.",
+    listingType: "vehicle",
     category: "rental",
     price: 1200,
     pricing_frequency: "daily",
@@ -140,7 +150,7 @@ const sampleListings = [
 async function seedDatabase() {
   try {
     // Connect to MongoDB
-    await mongoose.connect("mongodb+srv://yakson500:ouUZk1W29tDYenor@cluster0.wbprcly.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0");
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log('Connected to MongoDB');
 
     // Clear existing data

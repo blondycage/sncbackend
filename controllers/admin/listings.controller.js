@@ -27,7 +27,8 @@ const adminListingsController = {
         .sort(sort)
         .skip((page - 1) * limit)
         .limit(parseInt(limit))
-        .populate('owner', 'username email firstName lastName');
+        .populate('owner', 'username email firstName lastName')
+        .populate('reports.reportedBy', 'username email firstName lastName');
 
       const total = await Listing.countDocuments(query);
 
@@ -52,7 +53,8 @@ const adminListingsController = {
   getListing: async (req, res) => {
     try {
       const listing = await Listing.findById(req.params.id)
-        .populate('owner', 'username email firstName lastName');
+        .populate('owner', 'username email firstName lastName')
+        .populate('reports.reportedBy', 'username email firstName lastName');
 
       if (!listing) {
         throw new AppError('Listing not found', 404);

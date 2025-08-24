@@ -8,7 +8,7 @@ const {
   createUser,
   updateUser,
   deleteUser,
-  toggleUserLock,
+  // toggleUserLock removed - account locking disabled
   sendVerificationEmail,
   sendPasswordResetEmail,
   resetUploadQuota,
@@ -130,19 +130,7 @@ router.put('/:id', [
 // @access  Private/Admin
 router.delete('/:id', deleteUser);
 
-// @route   PATCH /api/admin/users/:id/lock
-// @desc    Lock/Unlock user account
-// @access  Private/Admin
-router.patch('/:id/lock', [
-  body('action')
-    .isIn(['lock', 'unlock'])
-    .withMessage('Action must be either "lock" or "unlock"'),
-  body('duration')
-    .optional()
-    .isInt({ min: 1, max: 168 })
-    .withMessage('Duration must be between 1 and 168 hours (7 days)'),
-  handleValidationErrors
-], toggleUserLock);
+// Removed lock/unlock route - account locking feature has been disabled
 
 // @route   POST /api/admin/users/:id/send-verification
 // @desc    Send verification email to user

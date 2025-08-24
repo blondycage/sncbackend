@@ -9,9 +9,7 @@ const { protect, telegramAuth, createRateLimit } = require('../middleware/auth')
 const { asyncHandler, validationError, authenticationError } = require('../middleware/errorHandler');
 const { sendEmail, getPasswordResetTemplate, getWelcomeTemplate } = require('../utils/sendEmail');
 
-// Rate limiting for auth endpoints
-const authRateLimit = createRateLimit(5, 15 * 60 * 1000, 'Too many authentication attempts');
-const resetPasswordRateLimit = createRateLimit(3, 60 * 60 * 1000, 'Too many password reset attempts');
+// Rate limiting disabled per request
 
 // Store for pending authentications (in production, use Redis or database)
 const pendingAuth = new Map();
@@ -200,15 +198,6 @@ router.post('/login', [
     return next(authenticationError('Invalid credentials'));
   }
 
-  // Check if account is locked
-  if (user.isLocked) {
-    return res.status(423).json({
-      success: false,
-      message: 'Account is temporarily locked due to multiple failed login attempts',
-      lockUntil: user.lockUntil
-    });
-  }
-
   // Check password
   console.log('🔍 CHECKING PASSWORD:', {
     providedPassword: password,
@@ -218,14 +207,8 @@ router.post('/login', [
   const isMatch = await user.matchPassword(password);
 
   if (!isMatch) {
-    await user.incLoginAttempts();
     console.log('🔍 INVALID CREDENTIALS2');
     return next(authenticationError('Invalid credentials'));
-  }
-
-  // Reset login attempts on successful login
-  if (user.loginAttempts > 0) {
-    await user.resetLoginAttempts();
   }
 
   // Update last login
@@ -801,7 +784,6 @@ router.put('/password', [
 // @route   POST /api/auth/forgot-password
 // @access  Public
 router.post('/forgot-password', [
-  resetPasswordRateLimit,
   body('email')
     .isEmail()
     .withMessage('Please enter a valid email')

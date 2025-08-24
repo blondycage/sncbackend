@@ -20,6 +20,8 @@ const adminRoutes = require('./routes/admin');
 const uploadRoutes = require('./routes/upload');
 const jobRoutes = require('./routes/jobs');
 const educationRoutes = require('./routes/education');
+const promotionRoutes = require('./routes/promotions');
+const blogRoutes = require('./routes/blog');
 
 // Import middleware
 const { errorHandler, notFound } = require('./middleware/errorHandler');
@@ -37,17 +39,7 @@ app.use(helmet({
   },
 }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
-  message: {
-    error: 'Too many requests from this IP, please try again later.'
-  },
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-});
-app.use('/api/', limiter);
+// Rate limiting disabled per request
 
 // CORS configuration
 const corsOptions = {
@@ -206,6 +198,8 @@ app.use('/api/jobs', jobRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/education', educationRoutes);
+app.use('/api/promotions', promotionRoutes);
+app.use('/api/blog', blogRoutes);
 
 // Serve static files (for uploaded images if not using Cloudinary)
 app.use('/uploads', express.static('uploads'));

@@ -8,8 +8,7 @@ const { protect, optionalAuth, checkUploadQuota, ownerOrAdmin, createRateLimit }
 const { asyncHandler, validationError, notFoundError, authorizationError } = require('../middleware/errorHandler');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinary');
 
-// Rate limiting for listing creation
-const createListingRateLimit = createRateLimit(10, 60 * 60 * 1000, 'Too many listing creation attempts');
+// Rate limiting disabled per request
 
 // @desc    Get all listings with filtering and search
 // @route   GET /api/listings
@@ -190,7 +189,7 @@ router.get('/', [
 // @access  Private
 router.post('/free', [
   protect,
-  createListingRateLimit,
+  // rate limit removed
   body('title')
     .trim()
     .isLength({ min: 5, max: 100 })
@@ -228,6 +227,13 @@ router.post('/free', [
   body('image_urls.*')
     .isURL()
     .withMessage('Each image URL must be a valid URL'),
+  body('image_urls')
+    .custom((arr) => Array.isArray(arr) && arr.length <= 10)
+    .withMessage('Maximum 10 images are allowed per listing'),
+  body('video_url')
+    .optional({ nullable: true })
+    .isURL()
+    .withMessage('Video URL must be a valid URL'),
   body('contact')
     .optional()
     .isObject()
@@ -256,6 +262,7 @@ router.post('/free', [
     price, 
     pricing_frequency, 
     image_urls, 
+    video_url,
     contact = {}, 
     location = {} 
   } = req.body;
@@ -315,6 +322,7 @@ router.post('/free', [
       price: Number(price),
       pricing_frequency,
       image_urls,
+      ...(video_url ? { video_url } : {}),
       owner: req.user._id,
       is_paid: false,
       contact: contact || {},
@@ -517,6 +525,82 @@ router.get('/free', [
   });
 }));
 
+// @desc    Get user's favorite listings
+// @route   GET /api/listings/favorites
+// @access  Private
+router.get('/favorites', protect, asyncHandler(async (req, res) => {
+  const { page = 1, limit = 10 } = req.query;
+
+  // Get user with populated favorites
+  const user = await User.findById(req.user._id)
+    .populate({
+      path: 'favorites.listing',
+      match: { 
+        moderationStatus: 'approved',
+        status: 'active',
+        expiresAt: { $gt: new Date() }
+      },
+      populate: {
+        path: 'owner',
+        select: 'username firstName lastName avatar role'
+      }
+    });
+
+  if (!user) {
+    return next(notFoundError('User not found'));
+  }
+
+  // Filter out null listings (deleted or unapproved)
+  const validFavorites = user.favorites.filter(fav => fav.listing);
+
+  // Sort by addedAt descending
+  validFavorites.sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt));
+
+  // Calculate pagination
+  const totalItems = validFavorites.length;
+  const totalPages = Math.ceil(totalItems / limit);
+  const currentPage = parseInt(page);
+  const startIndex = (currentPage - 1) * limit;
+  const endIndex = startIndex + parseInt(limit);
+  
+  const paginatedFavorites = validFavorites.slice(startIndex, endIndex);
+
+  // Format response data
+  const formattedListings = paginatedFavorites.map(fav => {
+    const listing = fav.listing;
+    return {
+      id: listing._id,
+      title: listing.title,
+      description: listing.description,
+      listingType: listing.listingType || 'other',
+      category: listing.category,
+      tags: listing.tags || [],
+      price: listing.price,
+      pricing_frequency: listing.pricing_frequency,
+      image_urls: listing.image_urls,
+      created_at: listing.createdAt,
+      owner: listing.owner,
+      views: listing.views,
+      is_paid: listing.is_paid,
+      primaryImage: listing.image_urls && listing.image_urls.length > 0 ? listing.image_urls[0] : null,
+      favorited_at: fav.addedAt
+    };
+  });
+
+  res.status(200).json({
+    success: true,
+    data: formattedListings,
+    pagination: {
+      currentPage,
+      totalPages,
+      totalItems,
+      hasNextPage: currentPage < totalPages,
+      hasPrevPage: currentPage > 1,
+      limit: parseInt(limit)
+    }
+  });
+}));
+
 // @desc    Get single listing
 // @route   GET /api/listings/:id
 // @access  Public
@@ -550,7 +634,9 @@ router.get('/:id', [
   listingData.tags = listingData.tags || [];
   
   if (req.user) {
-   // listingData.isFavorited = listing.favorites.some(fav => fav.user._id.toString() === req.user._id.toString());
+    // Check if listing is favorited by current user
+    const user = await User.findById(req.user._id);
+    listingData.isFavorited = user.isFavorited(listing._id);
     listingData.isOwner = listing.owner._id.toString() === req.user._id.toString();
   }
 
@@ -759,11 +845,16 @@ router.post('/:id/favorite', protect, asyncHandler(async (req, res, next) => {
     return next(notFoundError('Listing not found'));
   }
 
+  if (listing.moderationStatus !== 'approved') {
+    return next(validationError('Cannot favorite unapproved listing'));
+  }
+
   if (listing.owner.toString() === req.user._id.toString()) {
     return next(validationError('Cannot favorite your own listing'));
   }
 
-  await listing.addToFavorites(req.user._id);
+  const user = await User.findById(req.user._id);
+  await user.addToFavorites(req.params.id);
 
   res.status(200).json({
     success: true,
@@ -781,7 +872,8 @@ router.delete('/:id/favorite', protect, asyncHandler(async (req, res, next) => {
     return next(notFoundError('Listing not found'));
   }
 
-  await listing.removeFromFavorites(req.user._id);
+  const user = await User.findById(req.user._id);
+  await user.removeFromFavorites(req.params.id);
 
   res.status(200).json({
     success: true,
@@ -794,7 +886,7 @@ router.delete('/:id/favorite', protect, asyncHandler(async (req, res, next) => {
 // @access  Private
 router.post('/:id/inquire', [
   protect,
-  createRateLimit(10, 60 * 60 * 1000, 'Too many inquiries'),
+  // rate limit removed
   body('message').trim().isLength({ min: 10, max: 500 }).withMessage('Message must be between 10 and 500 characters')
 ], asyncHandler(async (req, res, next) => {
   // Check for validation errors
@@ -825,70 +917,12 @@ router.post('/:id/inquire', [
   });
 }));
 
-// @desc    Get user's favorite listings
-// @route   GET /api/listings/favorites
-// @access  Private
-router.get('/favorites', protect, asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10 } = req.query;
-
-  const query = {
-    'favorites.user': req.user._id,
-    moderationStatus: 'approved',
-    isActive: true
-  };
-
-  const options = {
-    page: parseInt(page),
-    limit: parseInt(limit),
-    sort: { 'favorites.addedAt': -1 },
-    populate: [
-      {
-        path: 'owner',
-        select: 'username firstName lastName avatar role'
-      }
-    ]
-  };
-
-  const result = await Listing.paginate(query, options);
-
-  // Format response data to ensure consistency and backward compatibility
-  const formattedListings = result.docs.map(listing => ({
-    id: listing._id,
-    title: listing.title,
-    description: listing.description,
-    listingType: listing.listingType || 'other',
-    category: listing.category,
-    tags: listing.tags || [],
-    price: listing.price,
-    pricing_frequency: listing.pricing_frequency,
-    image_urls: listing.image_urls,
-    created_at: listing.createdAt,
-    owner: listing.owner,
-    views: listing.views,
-    is_paid: listing.is_paid,
-    primaryImage: listing.image_urls && listing.image_urls.length > 0 ? listing.image_urls[0] : null
-  }));
-
-  res.status(200).json({
-    success: true,
-    data: formattedListings,
-    pagination: {
-      currentPage: result.page,
-      totalPages: result.totalPages,
-      totalItems: result.totalDocs,
-      hasNextPage: result.hasNextPage,
-      hasPrevPage: result.hasPrevPage,
-      limit: result.limit
-    }
-  });
-}));
-
 // @desc    Report listing
 // @route   POST /api/listings/:id/report
 // @access  Private
 router.post('/:id/report', [
   protect,
-  createRateLimit(5, 24 * 60 * 60 * 1000, 'Too many reports'),
+  // rate limit removed
   body('reason').isIn(['inappropriate', 'spam', 'scam', 'duplicate', 'other']).withMessage('Invalid reason'),
   body('description').optional().trim().isLength({ max: 500 }).withMessage('Description cannot exceed 500 characters')
 ], asyncHandler(async (req, res, next) => {
@@ -905,19 +939,22 @@ router.post('/:id/report', [
   }
 
   // Check if user already reported this listing
-  const existingFlag = listing.flags.find(flag => 
-    flag.user.toString() === req.user._id.toString()
+  const existingReport = listing.reports.find(report => 
+    report.reportedBy.toString() === req.user._id.toString()
   );
 
-  if (existingFlag) {
+  if (existingReport) {
     return next(validationError('You have already reported this listing'));
   }
 
-  listing.flags.push({
-    user: req.user._id,
+  listing.reports.push({
+    reportedBy: req.user._id,
     reason: req.body.reason,
     description: req.body.description
   });
+
+  // Update the isReported flag
+  listing.isReported = true;
 
   await listing.save();
 

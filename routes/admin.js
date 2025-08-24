@@ -5,6 +5,9 @@ const router = express.Router();
 const User = require('../models/User');
 const Listing = require('../models/Listing');
 const Job = require('../models/Job');
+const EducationalProgram = require('../models/EducationalProgram');
+const Application = require('../models/Application');
+const Blog = require('../models/Blog');
 const { protect, adminOnly, createRateLimit } = require('../middleware/auth');
 const { asyncHandler, validationError, notFoundError } = require('../middleware/errorHandler');
 const { sendEmail } = require('../utils/email');
@@ -14,19 +17,19 @@ const isAdmin = require('../middleware/isAdmin');
 const adminUsersRoutes = require('./admin/users.routes');
 const adminListingsRoutes = require('./admin/listings.routes');
 const adminJobsRoutes = require('./admin/jobs');
+const adminEducationRoutes = require('./admin/education.routes');
+const adminBlogRoutes = require('./admin/blog.routes');
 
-// Rate limiting for admin actions
-const adminActionRateLimit = createRateLimit(100, 60 * 60 * 1000, 'Too many admin actions');
-
-// Apply admin middleware to all routes
+// Apply admin middleware to all routes (rate limits disabled per request)
 router.use(protect);
 router.use(adminOnly);
-router.use(adminActionRateLimit);
 
 // Register admin sub-routes
 router.use('/users', adminUsersRoutes);
 router.use('/listings', adminListingsRoutes);
 router.use('/jobs', adminJobsRoutes);
+router.use('/education', adminEducationRoutes);
+router.use('/blog', adminBlogRoutes);
 
 // @desc    Get admin dashboard statistics
 // @route   GET /api/admin/dashboard
@@ -87,6 +90,48 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
     { $unwind: '$applications' },
     { $count: 'total' }
   ]);
+
+  // Education statistics
+  const totalEducationPrograms = await EducationalProgram.countDocuments();
+  const activeEducationPrograms = await EducationalProgram.countDocuments({ 
+    status: 'active', 
+    moderationStatus: 'approved' 
+  });
+  const pendingEducationPrograms = await EducationalProgram.countDocuments({ 
+    moderationStatus: 'pending' 
+  });
+  const totalEducationApplications = await Application.countDocuments();
+  const pendingEducationApplications = await Application.countDocuments({ 
+    status: { $in: ['submitted', 'under_review', 'documents_required'] }
+  });
+  const approvedEducationApplications = await Application.countDocuments({ 
+    status: { $in: ['approved', 'conditionally_approved', 'enrolled'] }
+  });
+
+  // Blog statistics
+  const totalBlogs = await Blog.countDocuments();
+  const publishedBlogs = await Blog.countDocuments({ status: 'published' });
+  const draftBlogs = await Blog.countDocuments({ status: 'draft' });
+  const featuredBlogs = await Blog.countDocuments({ featured: true });
+  
+  // Blog views and likes
+  const blogViewsAggregation = await Blog.aggregate([
+    { $group: { _id: null, totalViews: { $sum: '$views' } } }
+  ]);
+  const totalBlogViews = blogViewsAggregation.length > 0 ? blogViewsAggregation[0].totalViews : 0;
+
+  const blogLikesAggregation = await Blog.aggregate([
+    { $project: { likeCount: { $size: '$likes' } } },
+    { $group: { _id: null, totalLikes: { $sum: '$likeCount' } } }
+  ]);
+  const totalBlogLikes = blogLikesAggregation.length > 0 ? blogLikesAggregation[0].totalLikes : 0;
+
+  // Recent blogs (last 30 days)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const recentBlogs = await Blog.countDocuments({
+    createdAt: { $gte: thirtyDaysAgo }
+  });
 
   // Category breakdown
   const categoryStats = await Listing.aggregate([
@@ -163,6 +208,23 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
         flagged: flaggedJobs,
         today: todayJobs,
         totalApplications: totalJobApplications.length > 0 ? totalJobApplications[0].total : 0
+      },
+      education: {
+        total: totalEducationPrograms,
+        active: activeEducationPrograms,
+        pending: pendingEducationPrograms,
+        totalApplications: totalEducationApplications,
+        pendingApplications: pendingEducationApplications,
+        approvedApplications: approvedEducationApplications
+      },
+      blog: {
+        total: totalBlogs,
+        published: publishedBlogs,
+        draft: draftBlogs,
+        featured: featuredBlogs,
+        totalViews: totalBlogViews,
+        totalLikes: totalBlogLikes,
+        recentBlogs: recentBlogs
       },
       categories: categoryStats,
       jobTypes: jobTypeStats,

@@ -167,12 +167,20 @@ const userSchema = new mongoose.Schema({
     default: null
   },
   
-  // Security fields
-  loginAttempts: {
-    type: Number,
-    default: 0
-  },
-  lockUntil: Date,
+  // Security fields (login attempts tracking removed)
+  
+  // Favorites
+  favorites: [{
+    listing: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Listing',
+      required: true
+    },
+    addedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   
   // Metadata
   createdAt: Date,
@@ -204,10 +212,7 @@ userSchema.virtual('displayName').get(function() {
   return this.username || `User${this.telegramId}`;
 });
 
-// Virtual for checking if account is locked
-userSchema.virtual('isLocked').get(function() {
-  return !!(this.lockUntil && this.lockUntil > Date.now());
-});
+// Removed account locking virtual - accounts are no longer locked
 
 // Virtual for checking if user can upload
 userSchema.virtual('canUpload').get(function() {
@@ -324,32 +329,7 @@ userSchema.methods.getConfirmEmailToken = function() {
   return confirmToken;
 };
 
-// Instance method to increment login attempts
-userSchema.methods.incLoginAttempts = function() {
-  // If we have a previous lock that has expired, restart at 1
-  if (this.lockUntil && this.lockUntil < Date.now()) {
-    return this.updateOne({
-      $unset: { lockUntil: 1 },
-      $set: { loginAttempts: 1 }
-    });
-  }
-  
-  const updates = { $inc: { loginAttempts: 1 } };
-  
-  // If this is the 5th attempt and we're not locked yet, lock the account
-  if (this.loginAttempts + 1 >= 5 && !this.isLocked) {
-    updates.$set = { lockUntil: Date.now() + 2 * 60 * 60 * 1000 }; // Lock for 2 hours
-  }
-  
-  return this.updateOne(updates);
-};
-
-// Instance method to reset login attempts
-userSchema.methods.resetLoginAttempts = function() {
-  return this.updateOne({
-    $unset: { loginAttempts: 1, lockUntil: 1 }
-  });
-};
+// Removed login attempts and account locking methods
 
 // Instance method to use upload quota
 userSchema.methods.useUploadQuota = function(isPaid = false) {
@@ -407,6 +387,39 @@ userSchema.methods.getSafeUserData = function() {
     updatedAt: this.updatedAt,
     preferences: this.preferences
   };
+};
+
+// Instance method to add listing to favorites
+userSchema.methods.addToFavorites = function(listingId) {
+  // Check if already in favorites
+  const existingFavorite = this.favorites.find(fav => 
+    fav.listing.toString() === listingId.toString()
+  );
+  
+  if (!existingFavorite) {
+    this.favorites.push({
+      listing: listingId,
+      addedAt: new Date()
+    });
+  }
+  
+  return this.save();
+};
+
+// Instance method to remove listing from favorites
+userSchema.methods.removeFromFavorites = function(listingId) {
+  this.favorites = this.favorites.filter(fav => 
+    fav.listing.toString() !== listingId.toString()
+  );
+  
+  return this.save();
+};
+
+// Instance method to check if listing is favorited
+userSchema.methods.isFavorited = function(listingId) {
+  return this.favorites.some(fav => 
+    fav.listing.toString() === listingId.toString()
+  );
 };
 
 // Add pagination plugin

@@ -44,13 +44,7 @@ const protect = async (req, res, next) => {
       });
     }
 
-    // Check if account is locked
-    if (user.isLocked) {
-      return res.status(423).json({
-        success: false,
-        message: 'Account is temporarily locked due to multiple failed login attempts'
-      });
-    }
+    // Account locking check removed - feature has been disabled
 
     req.user = user;
     next();

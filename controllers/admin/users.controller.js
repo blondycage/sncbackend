@@ -41,8 +41,7 @@ const getUsers = async (req, res) => {
       query.isActive = true;
     } else if (status === 'inactive') {
       query.isActive = false;
-    } else if (status === 'locked') {
-      query.lockUntil = { $gt: new Date() };
+    // Removed locked status filter - accounts are no longer locked
     }
 
     // Verified filter
@@ -65,7 +64,6 @@ const getUsers = async (req, res) => {
     // Add computed fields
     const usersWithStats = users.docs.map(user => ({
       ...user.toObject(),
-      isLocked: user.isLocked,
       fullName: user.fullName,
       displayName: user.displayName,
       canUpload: user.canUpload
@@ -111,7 +109,6 @@ const getUser = async (req, res) => {
     // Add computed fields
     const userWithStats = {
       ...user.toObject(),
-      isLocked: user.isLocked,
       fullName: user.fullName,
       displayName: user.displayName,
       canUpload: user.canUpload
@@ -343,72 +340,7 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// @desc    Lock/Unlock user account
-// @route   PATCH /api/admin/users/:id/lock
-// @access  Private/Admin
-const toggleUserLock = async (req, res) => {
-  try {
-    const { action, duration = 2 } = req.body; // duration in hours
-    const user = await User.findById(req.params.id);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    // Prevent locking admin users by non-super admins
-    if (user.role === 'admin' && req.user.adminRole !== 'super') {
-      return res.status(403).json({
-        success: false,
-        message: 'Only super admins can lock admin users'
-      });
-    }
-
-    // Prevent self-locking
-    if (user._id.toString() === req.user.id) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot lock your own account'
-      });
-    }
-
-    if (action === 'lock') {
-      user.lockUntil = new Date(Date.now() + duration * 60 * 60 * 1000);
-      user.loginAttempts = 0;
-    } else if (action === 'unlock') {
-      user.lockUntil = undefined;
-      user.loginAttempts = 0;
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid action. Use "lock" or "unlock"'
-      });
-    }
-
-    await user.save();
-
-    res.status(200).json({
-      success: true,
-      message: `User ${action}ed successfully`,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        isLocked: user.isLocked,
-        lockUntil: user.lockUntil
-      }
-    });
-  } catch (error) {
-    console.error('Toggle user lock error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: error.message
-    });
-  }
-};
+// Removed toggleUserLock function - account locking feature has been disabled
 
 // @desc    Send verification email to user
 // @route   POST /api/admin/users/:id/send-verification
@@ -606,7 +538,7 @@ const getUserStats = async (req, res) => {
           totalUsers: { $sum: 1 },
           activeUsers: { $sum: { $cond: [{ $eq: ['$isActive', true] }, 1, 0] } },
           verifiedUsers: { $sum: { $cond: [{ $eq: ['$isVerified', true] }, 1, 0] } },
-          lockedUsers: { $sum: { $cond: [{ $gt: ['$lockUntil', new Date()] }, 1, 0] } },
+          // Removed lockedUsers count - account locking feature disabled
           adminUsers: { $sum: { $cond: [{ $eq: ['$role', 'admin'] }, 1, 0] } },
           advertiserUsers: { $sum: { $cond: [{ $eq: ['$role', 'advertiser'] }, 1, 0] } },
           regularUsers: { $sum: { $cond: [{ $eq: ['$role', 'user'] }, 1, 0] } }
@@ -647,7 +579,6 @@ const getUserStats = async (req, res) => {
         totalUsers: 0,
         activeUsers: 0,
         verifiedUsers: 0,
-        lockedUsers: 0,
         adminUsers: 0,
         advertiserUsers: 0,
         regularUsers: 0
@@ -671,7 +602,7 @@ module.exports = {
   createUser,
   updateUser,
   deleteUser,
-  toggleUserLock,
+  // toggleUserLock removed - account locking disabled
   sendVerificationEmail,
   sendPasswordResetEmail,
   resetUploadQuota,
