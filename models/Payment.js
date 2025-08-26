@@ -30,7 +30,7 @@ const PaymentSchema = new mongoose.Schema({
   },
   paymentType: {
     type: String,
-    enum: ['promotion_fee', 'listing_fee', 'featured_listing', 'application_fee', 'premium_placement'],
+    enum: ['promotion_fee', 'listing_fee', 'featured_listing', 'application_fee', 'premium_placement', 'service_payment'],
     required: true,
     index: true,
   },
@@ -61,6 +61,15 @@ const PaymentSchema = new mongoose.Schema({
     placement: { type: String }, // For promotions: 'homepage', 'category_top'
     features: [String], // For listing features: ['featured', 'urgent', 'highlighted']
     validUntil: { type: Date }, // For time-limited payments
+    // Service payment specific data
+    serviceDetails: {
+      listingTitle: String,
+      listingCategory: String,
+      ownerName: String,
+      ownerContact: String,
+      customAmount: Number, // User-defined amount
+      agreedTerms: String
+    }
   },
   timeline: [{
     status: String,

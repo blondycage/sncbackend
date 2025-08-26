@@ -65,27 +65,39 @@ router.post('/create', [
   protect,
   body('itemType').isIn(['promotion', 'listing', 'property', 'education_application', 'featured_listing']),
   body('itemId').isMongoId(),
-  body('paymentType').isIn(['promotion_fee', 'listing_fee', 'featured_listing', 'application_fee', 'premium_placement']),
+  body('paymentType').isIn(['promotion_fee', 'listing_fee', 'featured_listing', 'application_fee', 'premium_placement', 'service_payment']),
   body('chain').isIn(['btc', 'eth', 'usdt_erc20', 'usdt_trc20', 'bitcoin', 'ethereum', 'other']),
   body('durationDays').optional().isInt({ min: 1 }),
   body('placement').optional().isIn(['homepage', 'category_top']),
-  body('features').optional().isArray()
+  body('features').optional().isArray(),
+  body('amount').optional().isFloat({ min: 0.01 }),
+  body('description').optional().isString(),
+  body('serviceDetails').optional().isObject()
 ], asyncHandler(async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return next(validationError(errors.array().map(e => e.msg).join(', ')));
 
-  const { itemType, itemId, paymentType, chain, durationDays, placement, features } = req.body;
+  const { itemType, itemId, paymentType, chain, durationDays, placement, features, amount, description, serviceDetails } = req.body;
   
   // Verify item exists and user owns it
   let item, refModel;
   switch (itemType) {
     case 'listing':
     case 'property':
-      item = await Listing.findById(itemId);
+      item = await Listing.findById(itemId).populate('owner', 'firstName lastName email');
       refModel = 'Listing';
       if (!item) return next(notFoundError('Listing not found'));
-      if (item.owner.toString() !== req.user._id.toString()) {
-        return next(authorizationError('Not your listing'));
+      
+      // For service payments, user should NOT be the owner (they're paying the owner)
+      if (paymentType === 'service_payment') {
+        if (item.owner._id.toString() === req.user._id.toString()) {
+          return next(authorizationError('Cannot pay for your own service'));
+        }
+      } else {
+        // For other payment types (promotions, etc), user should own the listing
+        if (item.owner._id.toString() !== req.user._id.toString()) {
+          return next(authorizationError('Not your listing'));
+        }
       }
       break;
     case 'education_application':
@@ -114,7 +126,21 @@ router.post('/create', [
   }
 
   const cfg = await getConfigOrDefault();
-  const { amount, currency } = computePrice(cfg, paymentType, durationDays);
+  
+  // For service payments, use user-provided amount; for others, compute from config
+  let paymentAmount, currency;
+  if (paymentType === 'service_payment') {
+    if (!amount || amount <= 0) {
+      return next(validationError('Amount is required for service payments'));
+    }
+    paymentAmount = amount;
+    currency = 'USD';
+  } else {
+    const priceData = computePrice(cfg, paymentType, durationDays);
+    paymentAmount = priceData.amount;
+    currency = priceData.currency;
+  }
+  
   const walletAddress = getWalletAddress(cfg, chain);
 
   if (!walletAddress) {
@@ -131,16 +157,20 @@ router.post('/create', [
     refModel,
     paymentType,
     pricing: { 
-      amount, 
+      amount: paymentAmount, 
       currency, 
       chain: normalizedChain,
-      description: getPaymentDescription(paymentType, durationDays, placement, features)
+      description: description || getPaymentDescription(paymentType, durationDays, placement, features)
     },
     payment: { walletAddress },
     metadata: {
       duration: durationDays,
       placement,
       features: features || [],
+      ...(paymentType === 'service_payment' && serviceDetails && { serviceDetails: {
+        ...serviceDetails,
+        customAmount: paymentAmount
+      }})
     }
   };
 
