@@ -40,7 +40,7 @@ router.post('/', [
   body('listingId').isMongoId(),
   body('placement').isIn(['homepage', 'category_top']),
   body('durationDays').isInt({ min: 1 }),
-  body('chain').isIn(['bitcoin', 'ethereum', 'usdt_erc20', 'usdt_trc20', 'other'])
+  body('chain').isIn(['btc', 'eth', 'usdt_erc20', 'usdt_trc20', 'bitcoin', 'ethereum', 'other'])
 ], asyncHandler(async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return next(validationError(errors.array().map(e => e.msg).join(', ')));
@@ -61,7 +61,9 @@ router.post('/', [
   // Map display chain names to internal wallet keys
   const chainToWalletKey = {
     'bitcoin': 'btc',
-    'ethereum': 'eth',
+    'btc': 'btc',
+    'ethereum': 'eth', 
+    'eth': 'eth',
     'usdt_erc20': 'usdt_erc20',
     'usdt_trc20': 'usdt_trc20',
     'other': 'other'
@@ -75,7 +77,7 @@ router.post('/', [
     owner: req.user._id,
     placement,
     listingCategory: listing.category,
-    pricing: { placement, durationDays: parseInt(durationDays), amount, currency, chain },
+    pricing: { placement, durationDays: parseInt(durationDays), amount, currency, chain: walletKey },
     payment: { walletAddress },
     status: 'awaiting_payment',
   });

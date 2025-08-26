@@ -8,17 +8,10 @@ const { protect, adminOnly, authorize } = require('../middleware/auth');
 const { asyncHandler, validationError, notFoundError } = require('../middleware/errorHandler');
 const multer = require('multer');
 const path = require('path');
+const { uploadToCloudinary, validateImage } = require('../utils/cloudinary');
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/education/')
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configure multer for memory storage (for Cloudinary uploads)
+const storage = multer.memoryStorage();
 
 const upload = multer({ 
   storage: storage,
@@ -535,32 +528,64 @@ router.post('/applications/:id/documents', [
     return next(validationError('Not authorized to upload documents for this application'));
   }
 
-  const { documentType } = req.body;
-  const documentUrl = `/uploads/education/${req.file.filename}`;
-
-  // Update document in application
-  if (application.documents[documentType]) {
-    application.documents[documentType].uploaded = true;
-    application.documents[documentType].url = documentUrl;
-  } else {
-    // For additional documents
-    application.documents.additional.push({
-      name: documentType,
-      url: documentUrl,
-      uploaded: true
-    });
-  }
-
-  await application.save();
-
-  res.status(200).json({
-    success: true,
-    message: 'Document uploaded successfully',
-    data: {
-      documentType,
-      url: documentUrl
+  try {
+    const { documentType } = req.body;
+    
+    // Validate file type for images
+    if (req.file.mimetype.startsWith('image/')) {
+      validateImage(req.file);
     }
-  });
+
+    // Upload to Cloudinary
+    const uploadOptions = {
+      folder: 'education/documents',
+      resource_type: req.file.mimetype.startsWith('image/') ? 'image' : 'raw',
+      public_id: `${application._id}_${documentType}_${Date.now()}`,
+      format: 'auto',
+      quality: 'auto:good'
+    };
+
+    const result = await uploadToCloudinary(req.file.buffer, uploadOptions);
+
+    // Update document in application
+    const validDocumentTypes = [
+      'passportDatapage', 'passportPhotograph', 'waecNecoResults', 'bachelorTranscript',
+      'bachelorDiploma', 'masterTranscript', 'masterDiploma', 'cv', 'researchProposal', 'englishProficiency'
+    ];
+
+    if (validDocumentTypes.includes(documentType)) {
+      if (!application.documents[documentType]) {
+        application.documents[documentType] = {};
+      }
+      application.documents[documentType].uploaded = true;
+      application.documents[documentType].url = result.secure_url;
+      application.documents[documentType].cloudinaryId = result.public_id;
+    } else {
+      // For additional documents
+      application.documents.additional.push({
+        name: documentType,
+        url: result.secure_url,
+        cloudinaryId: result.public_id,
+        uploaded: true
+      });
+    }
+
+    await application.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Document uploaded successfully',
+      data: {
+        documentType,
+        url: result.secure_url,
+        cloudinaryId: result.public_id
+      }
+    });
+
+  } catch (error) {
+    console.error('Document upload error:', error);
+    return next(validationError(`Document upload failed: ${error.message}`));
+  }
 }));
 
 // Admin routes for managing applications

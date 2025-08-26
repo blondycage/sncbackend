@@ -22,6 +22,8 @@ const jobRoutes = require('./routes/jobs');
 const educationRoutes = require('./routes/education');
 const promotionRoutes = require('./routes/promotions');
 const blogRoutes = require('./routes/blog');
+const paymentRoutes = require('./routes/payments');
+const subscriberRoutes = require('./routes/subscribers');
 
 // Import middleware
 const { errorHandler, notFound } = require('./middleware/errorHandler');
@@ -200,6 +202,8 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/education', educationRoutes);
 app.use('/api/promotions', promotionRoutes);
 app.use('/api/blog', blogRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/subscribers', subscriberRoutes);
 
 // Serve static files (for uploaded images if not using Cloudinary)
 app.use('/uploads', express.static('uploads'));

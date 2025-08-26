@@ -234,6 +234,7 @@ EducationalProgramSchema.index({ 'tuition.amount': 1 });
 
 // Virtual for primary image
 EducationalProgramSchema.virtual('primaryImage').get(function() {
+  if (!this.images || !Array.isArray(this.images)) return null;
   const primaryImg = this.images.find(img => img.isPrimary);
   return primaryImg ? primaryImg.url : (this.images.length > 0 ? this.images[0].url : null);
 });

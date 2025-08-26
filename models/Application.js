@@ -3,8 +3,7 @@ const mongoose = require('mongoose');
 const ApplicationSchema = new mongoose.Schema({
   applicationId: {
     type: String,
-    unique: true,
-    required: true
+    unique: true
   },
   applicant: {
     type: mongoose.Schema.Types.ObjectId,
@@ -86,7 +85,8 @@ const ApplicationSchema = new mongoose.Schema({
     },
     familyIncome: {
       type: String,
-      enum: ['below_25000', '25000_50000', '50000_75000', '75000_100000', 'above_100000', 'prefer_not_to_say']
+      enum: ['below_25000', '25000_50000', '50000_75000', '75000_100000', 'above_100000', 'prefer_not_to_say'],
+      required: false
     }
   },
   academicBackground: {
@@ -205,44 +205,70 @@ const ApplicationSchema = new mongoose.Schema({
     }]
   },
   documents: {
-    passport: {
+    passportDatapage: {
       uploaded: { type: Boolean, default: false },
       url: String,
+      cloudinaryId: String,
       verified: { type: Boolean, default: false }
     },
-    highSchoolDiploma: {
+    passportPhotograph: {
       uploaded: { type: Boolean, default: false },
       url: String,
+      cloudinaryId: String,
       verified: { type: Boolean, default: false }
     },
-    transcripts: {
+    waecNecoResults: {
       uploaded: { type: Boolean, default: false },
       url: String,
+      cloudinaryId: String,
       verified: { type: Boolean, default: false }
     },
-    languageTest: {
+    bachelorTranscript: {
       uploaded: { type: Boolean, default: false },
       url: String,
+      cloudinaryId: String,
       verified: { type: Boolean, default: false }
     },
-    personalStatement: {
+    bachelorDiploma: {
       uploaded: { type: Boolean, default: false },
       url: String,
+      cloudinaryId: String,
       verified: { type: Boolean, default: false }
     },
-    recommendationLetters: {
+    masterTranscript: {
       uploaded: { type: Boolean, default: false },
       url: String,
+      cloudinaryId: String,
       verified: { type: Boolean, default: false }
     },
-    portfolio: {
+    masterDiploma: {
       uploaded: { type: Boolean, default: false },
       url: String,
+      cloudinaryId: String,
+      verified: { type: Boolean, default: false }
+    },
+    cv: {
+      uploaded: { type: Boolean, default: false },
+      url: String,
+      cloudinaryId: String,
+      verified: { type: Boolean, default: false }
+    },
+    researchProposal: {
+      uploaded: { type: Boolean, default: false },
+      url: String,
+      cloudinaryId: String,
+      verified: { type: Boolean, default: false }
+    },
+    englishProficiency: {
+      uploaded: { type: Boolean, default: false },
+      url: String,
+      cloudinaryId: String,
       verified: { type: Boolean, default: false }
     },
     additional: [{
       name: String,
       url: String,
+      cloudinaryId: String,
       uploaded: { type: Boolean, default: false },
       verified: { type: Boolean, default: false }
     }]
