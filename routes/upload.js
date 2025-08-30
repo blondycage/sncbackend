@@ -24,6 +24,32 @@ const upload = multer({
   }
 });
 
+// Configure multer for document upload (less restrictive)
+const documentUpload = multer({
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+    files: 1 // Single document
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp'
+    ];
+    
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF, DOC, DOCX, and image files are allowed'), false);
+    }
+  }
+});
+
 // @desc    Upload multiple images
 // @route   POST /api/upload/images
 // @access  Private
@@ -132,6 +158,48 @@ router.post('/avatar', [
   }
 }));
 
+// @desc    Upload education application document
+// @route   POST /api/upload/document
+// @access  Private
+router.post('/document', [
+  protect,
+  documentUpload.single('document')
+], asyncHandler(async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return next(validationError('No document uploaded'));
+    }
+
+    // Determine resource type based on file type
+    const resourceType = req.file.mimetype.startsWith('image/') ? 'image' : 'raw';
+    
+    // Upload document to Cloudinary
+    const result = await uploadToCloudinary(req.file.buffer, {
+      folder: 'education-documents',
+      public_id: `document_${req.user._id}_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`,
+      resource_type: resourceType,
+      raw_convert: resourceType === 'raw' ? 'aspose' : undefined, // Enable document preview for PDFs
+      format: resourceType === 'raw' ? undefined : 'auto'
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        url: result.secure_url,
+        public_id: result.public_id,
+        resource_type: resourceType,
+        format: result.format,
+        bytes: result.bytes
+      },
+      message: 'Document uploaded successfully'
+    });
+
+  } catch (error) {
+    console.error('Error uploading document:', error);
+    return next(error);
+  }
+}));
+
 // Error handler for multer errors
 router.use((error, req, res, next) => {
   if (error instanceof multer.MulterError) {
@@ -153,6 +221,13 @@ router.use((error, req, res, next) => {
     return res.status(400).json({
       success: false,
       message: 'Only image files are allowed (JPEG, PNG, WebP, etc.)'
+    });
+  }
+
+  if (error.message.includes('Invalid file type')) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
     });
   }
 
