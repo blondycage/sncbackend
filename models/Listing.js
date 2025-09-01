@@ -91,7 +91,7 @@ const listingSchema = new mongoose.Schema({
     type: String,
     trim: true,
     lowercase: true,
-    maxlength: [30, 'Tag cannot exceed 30 characters'],
+    maxlength: [100, 'Tag cannot exceed 30 characters'],
     validate: {
       validator: function(v) {
         // Only allow alphanumeric characters, spaces, and hyphens
@@ -126,7 +126,7 @@ const listingSchema = new mongoose.Schema({
       type: String,
     required: [true, 'Pricing frequency is required'],
     enum: {
-      values: ['hourly', 'daily', 'weekly', 'monthly', 'fixed'],
+      values: ['hourly', 'daily', 'weekly', 'monthly', 'fixed',"negotiable","free","yearly"],
       message: '{VALUE} is not a valid pricing frequency'
     },
     validate: {
@@ -135,31 +135,31 @@ const listingSchema = new mongoose.Schema({
           value: value,
           type: typeof value,
           category: this.category,
-          allValidValues: ['hourly', 'daily', 'weekly', 'monthly', 'fixed',"negotiable"]
+          allValidValues: ['hourly', 'daily', 'weekly', 'monthly', 'fixed',"negotiable","free","yearly"]
         });
         
         // Validate pricing frequency based on category
         if (this.category === 'rental') {
-          const valid = ['daily', 'weekly', 'monthly'].includes(value);
+          const valid = ['daily', 'weekly', 'monthly',"yearly","negotiable"].includes(value);
           console.log('🔍 RENTAL PRICING VALIDATION:', {
             value: value,
-            validOptions: ['daily', 'weekly', 'monthly'],
+            validOptions: ['daily', 'weekly', 'monthly',"yearly","negotiable"],
             isValid: valid
           });
           return valid;
         } else if (this.category === 'service') {
-          const valid = ['hourly', 'daily', 'fixed'].includes(value);
+          const valid = ['hourly', 'daily', 'fixed',"negotiable","free","yearly"].includes(value);
           console.log('🔍 SERVICE PRICING VALIDATION:', {
             value: value,
-            validOptions: ['hourly', 'daily', 'fixed'],
+            validOptions: ['hourly', 'daily', 'fixed',"negotiable","free","yearly"],
             isValid: valid
           });
           return valid;
         } else if (this.category === 'sale') {
-          const valid = value === 'fixed';
+          const valid = value === 'fixed' || value === 'negotiable' ;
           console.log('🔍 SALE PRICING VALIDATION:', {
             value: value,
-            validOptions: ['fixed'],
+            validOptions: ['fixed',"negotiable"],
             isValid: valid
           });
           return valid;
@@ -354,9 +354,9 @@ listingSchema.pre('save', function(next) {
   
   // Additional validation for pricing frequency
   const validFrequencies = {
-    'rental': ['daily', 'weekly', 'monthly'],
-    'service': ['hourly', 'daily', 'fixed'],
-    'sale': ['fixed']
+    'rental': ['daily', 'weekly', 'monthly',"yearly","negotiable"],
+    'service': ['hourly', 'daily', 'fixed',"negotiable","free","yearly"],
+    'sale': ['fixed',"negotiable","free"]
   };
   
   console.log('🔍 PRE-SAVE PRICING VALIDATION:', {

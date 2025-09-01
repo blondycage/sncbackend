@@ -30,29 +30,12 @@ const EducationalProgramSchema = new mongoose.Schema({
   level: {
     type: String,
     required: [true, 'Program level is required'],
-    enum: [
-      'undergraduate', 
-      'undergraduate_transfer',
-      'postgraduate_masters',
-      'postgraduate_phd',
-      'graduate', 
-      'doctorate', 
-      'certificate',
-      'diploma',
-      'language_course'
-    ]
+   
   },
   fieldOfStudy: {
     type: String,
     required: false, // Make optional to avoid validation issues
-    enum: [
-      'computer_science', 'engineering', 'business', 'medicine', 'law', 'education',
-      'arts_humanities', 'social_sciences', 'natural_sciences', 'mathematics',
-      'psychology', 'tourism_hospitality', 'architecture', 'design', 'music',
-      'sports_science', 'agriculture', 'veterinary', 'pharmacy', 'dentistry',
-      'nursing', 'languages', 'communications', 'international_relations', 'economics',
-      'other'
-    ]
+   
   },
   duration: {
     value: {

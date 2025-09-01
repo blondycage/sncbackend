@@ -37,9 +37,9 @@ router.get('/programs', [
   query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50'),
   query('level').optional().isIn([
     'undergraduate', 'undergraduate_transfer', 'postgraduate_masters', 
-    'postgraduate_phd', 'certificate', 'diploma', 'language_course'
+    'postgraduate_phd', 'graduate', 'doctorate', 'certificate', 'diploma', 'language_course'
   ]).withMessage('Invalid program level'),
-  query('field').optional().isIn([
+  query('fieldOfStudy').optional().isIn([
     'computer_science', 'engineering', 'business', 'medicine', 'law', 'education',
     'arts_humanities', 'social_sciences', 'natural_sciences', 'mathematics',
     'psychology', 'tourism_hospitality', 'architecture', 'design', 'music',
@@ -234,9 +234,9 @@ router.post('/programs', [
   body('description').notEmpty().withMessage('Program description is required'),
   body('level').isIn([
     'undergraduate', 'undergraduate_transfer', 'postgraduate_masters', 
-    'postgraduate_phd', 'certificate', 'diploma', 'language_course'
+    'postgraduate_phd', 'graduate', 'doctorate', 'certificate', 'diploma', 'language_course'
   ]).withMessage('Invalid program level'),
-  body('field').isIn([
+  body('fieldOfStudy').optional().isIn([
     'computer_science', 'engineering', 'business', 'medicine', 'law', 'education',
     'arts_humanities', 'social_sciences', 'natural_sciences', 'mathematics',
     'psychology', 'tourism_hospitality', 'architecture', 'design', 'music',

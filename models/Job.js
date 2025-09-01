@@ -21,7 +21,7 @@ const jobSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Job description is required'],
     trim: true,
-    minlength: [50, 'Description must be at least 50 characters'],
+    minlength: [10, 'Description must be at least 50 characters'],
     maxlength: [5000, 'Description cannot exceed 5000 characters']
   },
   salary: {
@@ -50,7 +50,6 @@ const jobSchema = new mongoose.Schema({
     frequency: {
       type: String,
       required: [true, 'Salary frequency is required'],
-      enum: ['hourly', 'daily', 'weekly', 'monthly', 'yearly'],
       default: 'monthly'
     }
   },
@@ -236,7 +235,7 @@ const jobSchema = new mongoose.Schema({
     reason: {
       type: String,
       required: true,
-      enum: ['spam', 'inappropriate', 'fake', 'other']
+      
     },
     description: {
       type: String,
