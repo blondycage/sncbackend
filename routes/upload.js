@@ -24,7 +24,7 @@ const upload = multer({
   }
 });
 
-// Configure multer for document upload (less restrictive)
+// Configure multer for document upload (images only to prevent cloudinary errors)
 const documentUpload = multer({
   storage,
   limits: {
@@ -33,11 +33,8 @@ const documentUpload = multer({
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'image/jpeg',
-      'image/jpg',
+      'image/jpg', 
       'image/png',
       'image/webp'
     ];
@@ -45,7 +42,7 @@ const documentUpload = multer({
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only PDF, DOC, DOCX, and image files are allowed'), false);
+      cb(new Error('Only image files are allowed (JPEG, PNG, WebP). Please scan or photograph your documents.'), false);
     }
   }
 });
@@ -158,7 +155,7 @@ router.post('/avatar', [
   }
 }));
 
-// @desc    Upload education application document
+// @desc    Upload education application document (images only)
 // @route   POST /api/upload/document
 // @access  Private
 router.post('/document', [
@@ -170,16 +167,20 @@ router.post('/document', [
       return next(validationError('No document uploaded'));
     }
 
-    // Determine resource type based on file type
-    const resourceType = req.file.mimetype.startsWith('image/') ? 'image' : 'raw';
-    
-    // Upload document to Cloudinary
+    // Since we only accept images now, we can safely use image processing
     const result = await uploadToCloudinary(req.file.buffer, {
       folder: 'education-documents',
       public_id: `document_${req.user._id}_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`,
-      resource_type: resourceType,
-      raw_convert: resourceType === 'raw' ? 'aspose' : undefined, // Enable document preview for PDFs
-      format: resourceType === 'raw' ? undefined : 'auto'
+      resource_type: 'image',
+      transformation: [
+        { width: 2000, height: 2000, crop: 'limit' }, // Limit size but maintain quality for documents
+        { quality: 'auto:good' }
+      ],
+      // Override the default format settings to prevent conflicts
+      format: undefined,
+      fetch_format: undefined,
+      // Ensure we don't inherit problematic default transformations
+      transformation_override: true
     });
 
     res.status(200).json({
@@ -187,11 +188,11 @@ router.post('/document', [
       data: {
         url: result.secure_url,
         public_id: result.public_id,
-        resource_type: resourceType,
+        resource_type: 'image',
         format: result.format,
         bytes: result.bytes
       },
-      message: 'Document uploaded successfully'
+      message: 'Document image uploaded successfully'
     });
 
   } catch (error) {
@@ -224,7 +225,7 @@ router.use((error, req, res, next) => {
     });
   }
 
-  if (error.message.includes('Invalid file type')) {
+  if (error.message.includes('Invalid file type') || error.message.includes('Only image files are allowed')) {
     return res.status(400).json({
       success: false,
       message: error.message

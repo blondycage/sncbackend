@@ -19,10 +19,10 @@ router.get('/', [
   query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50'),
   query('listingType').optional().isIn(['real_estate', 'vehicle', 'other']).withMessage('Invalid listing type'),
   query('category').optional().isIn(['rental', 'sale', 'service']).withMessage('Invalid category'),
-  query('city').optional().isIn(['nicosia', 'kyrenia', 'famagusta', 'morphou', 'lefka', 'lapithos', 'bellapais', 'bogaz', 'catalkoy', 'esentepe', 'iskele', 'karaoglanoglu', 'kayalar', 'ozankoy', 'tatlisu', 'yenibogazici', 'zeytinlik', 'dipkarpaz', 'karpas', 'other']).withMessage('Invalid city'),
+  query('city').optional().isIn(['nicosia', 'kyrenia', 'famagusta', 'morphou', 'lefka', 'lapithos', 'bellapais', 'bogaz', 'catalkoy', 'esentepe', 'iskele', 'karaoglanoglu', 'kayalar', 'ozankoy', 'tatlisu', 'yenibogazici', 'zeytinlik', 'dipkarpaz', 'karpas', 'alsancak', 'lapta', 'lefke', 'other', 'Nicosia', 'Kyrenia', 'Famagusta', 'Morphou', 'Lefke', 'İskele', 'Alsancak', 'Lapta', 'Çatalköy', 'Esentepe', 'Boğaz', 'Dipkarpaz']).withMessage('Invalid city'),
   query('minPrice').optional().isFloat({ min: 0 }).withMessage('Min price must be non-negative'),
   query('maxPrice').optional().isFloat({ min: 0 }).withMessage('Max price must be non-negative'),
-  query('pricing_frequency').optional().isIn(['hourly', 'daily', 'weekly', 'monthly', 'fixed']).withMessage('Invalid pricing frequency'),
+  query('pricing_frequency').optional().isIn(['hourly', 'daily', 'weekly', 'monthly', 'yearly', 'fixed', 'negotiable', 'free']).withMessage('Invalid pricing frequency'),
   query('search').optional().trim().isLength({ min: 1 }).withMessage('Search query must not be empty'),
   query('tags').optional().trim().isLength({ min: 1 }).withMessage('Tags filter must not be empty'),
   query('sortBy').optional().isIn(['newest', 'oldest', 'price-low', 'price-high']).withMessage('Invalid sort option')
@@ -66,14 +66,18 @@ router.get('/', [
   }
 
   if (city) {
-    query['location.city'] = city;
+    // Case-insensitive city matching
+    query['location.city'] = { $regex: new RegExp(`^${city}$`, 'i') };
   }
 
   if (search) {
-    // Enhanced search to include tags
+    // Enhanced search to include title, description, tags, and location
     query.$or = [
-      { $text: { $search: search } },
-      { tags: { $regex: search, $options: 'i' } }
+      { title: { $regex: search, $options: 'i' } },
+      { description: { $regex: search, $options: 'i' } },
+      { tags: { $regex: search, $options: 'i' } },
+      { 'location.city': { $regex: search, $options: 'i' } },
+      { 'location.area': { $regex: search, $options: 'i' } }
     ];
   }
 
@@ -219,8 +223,8 @@ router.post('/free', [
     .isFloat({ min: 0 })
     .withMessage('Price must be a positive number'),
   body('pricing_frequency')
-    .isIn(['hourly', 'daily', 'weekly', 'monthly', 'fixed'])
-    .withMessage('Pricing frequency must be one of: hourly, daily, weekly, monthly, fixed'),
+    .isIn(['hourly', 'daily', 'weekly', 'monthly', 'yearly', 'fixed', 'negotiable', 'free'])
+    .withMessage('Pricing frequency must be one of: hourly, daily, weekly, monthly, yearly, fixed, negotiable, free'),
   body('image_urls')
     .isArray({ min: 1 })
     .withMessage('At least one image URL is required'),
@@ -288,9 +292,9 @@ router.post('/free', [
 
   // Additional validation for pricing frequency based on category
   const validFrequencies = {
-    'rental': ['daily', 'weekly', 'monthly'],
-    'service': ['hourly', 'daily', 'fixed'],
-    'sale': ['fixed']
+    'rental': ['daily', 'weekly', 'monthly', 'yearly', 'negotiable'],
+    'service': ['hourly', 'daily', 'fixed', 'negotiable', 'free', 'yearly'],
+    'sale': ['fixed', 'negotiable', 'free']
   };
 
   if (!validFrequencies[category].includes(pricing_frequency)) {
@@ -303,6 +307,19 @@ router.post('/free', [
   }
 
   console.log('✅ PRICING FREQUENCY VALIDATION PASSED');
+
+  // Check upload quota before creating listing
+  console.log('🔍 CHECKING UPLOAD QUOTA...');
+  const user = await req.user.constructor.findById(req.user._id);
+  if (!user.canUpload) {
+    console.log('❌ UPLOAD QUOTA EXCEEDED:', {
+      freeUploadsUsed: user.uploadQuota.freeUploadsUsed,
+      freeUploadsLimit: user.uploadQuota.freeUploadsLimit,
+      paidUploadsRemaining: user.uploadQuota.paidUploadsRemaining
+    });
+    return next(validationError('Upload quota exceeded. You cannot create more listings at this time.'));
+  }
+  console.log('✅ UPLOAD QUOTA CHECK PASSED');
 
   try {
     console.log('🔨 CREATING LISTING DOCUMENT...');
@@ -336,6 +353,16 @@ router.post('/free', [
     
     await listing.save();
     console.log('✅ LISTING SAVED SUCCESSFULLY');
+
+    // Consume upload quota (free listing)
+    try {
+      await user.consumeUpload(false); // false = free upload
+      console.log('✅ UPLOAD QUOTA CONSUMED');
+    } catch (quotaError) {
+      console.log('⚠️ UPLOAD QUOTA CONSUMPTION FAILED:', quotaError.message);
+      // Note: Listing was already created, but quota wasn't consumed
+      // This could indicate a race condition or database issue
+    }
 
     // Populate owner information
     await listing.populate('owner', 'username firstName lastName email');
@@ -399,8 +426,8 @@ router.get('/free', [
     .withMessage('Max price must be non-negative'),
   query('pricing_frequency')
     .optional()
-    .isIn(['hourly', 'daily', 'weekly', 'monthly', 'fixed'])
-    .withMessage('Pricing frequency must be one of: hourly, daily, weekly, monthly, fixed'),
+    .isIn(['hourly', 'daily', 'weekly', 'monthly', 'yearly', 'fixed', 'negotiable', 'free'])
+    .withMessage('Pricing frequency must be one of: hourly, daily, weekly, monthly, yearly, fixed, negotiable, free'),
   query('search')
     .optional()
     .trim()
@@ -438,7 +465,14 @@ router.get('/free', [
   }
 
   if (search) {
-    query.$text = { $search: search };
+    // Enhanced search to include title, description, tags, and location
+    query.$or = [
+      { title: { $regex: search, $options: 'i' } },
+      { description: { $regex: search, $options: 'i' } },
+      { tags: { $regex: search, $options: 'i' } },
+      { 'location.city': { $regex: search, $options: 'i' } },
+      { 'location.area': { $regex: search, $options: 'i' } }
+    ];
   }
 
   if (minPrice !== undefined) {
@@ -671,8 +705,8 @@ router.put('/:id', [
     .withMessage('Price must be a positive number'),
   body('pricing_frequency')
     .optional()
-    .isIn(['hourly', 'daily', 'weekly', 'monthly', 'fixed'])
-    .withMessage('Pricing frequency must be one of: hourly, daily, weekly, monthly, fixed')
+    .isIn(['hourly', 'daily', 'weekly', 'monthly', 'yearly', 'fixed', 'negotiable', 'free'])
+    .withMessage('Pricing frequency must be one of: hourly, daily, weekly, monthly, yearly, fixed, negotiable, free')
 ], asyncHandler(async (req, res, next) => {
   // Check for validation errors
   const errors = validationResult(req);
@@ -707,9 +741,9 @@ router.put('/:id', [
     const pricing_frequency = updateFields.pricing_frequency || listing.pricing_frequency;
     
     const validFrequencies = {
-      'rental': ['daily', 'weekly', 'monthly'],
-      'service': ['hourly', 'daily', 'fixed'],
-      'sale': ['fixed']
+      'rental': ['daily', 'weekly', 'monthly', 'yearly', 'negotiable'],
+      'service': ['hourly', 'daily', 'fixed', 'negotiable', 'free', 'yearly'],
+      'sale': ['fixed', 'negotiable', 'free']
     };
 
     if (!validFrequencies[category].includes(pricing_frequency)) {

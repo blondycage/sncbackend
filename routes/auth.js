@@ -7,7 +7,7 @@ const router = express.Router();
 const User = require('../models/User');
 const { protect, telegramAuth, createRateLimit } = require('../middleware/auth');
 const { asyncHandler, validationError, authenticationError } = require('../middleware/errorHandler');
-const { sendEmail, getPasswordResetTemplate, getWelcomeTemplate } = require('../utils/sendEmail');
+const { sendWelcomeEmail, sendPasswordResetEmail } = require('../services/emailService');
 
 // Rate limiting disabled per request
 
@@ -154,11 +154,7 @@ router.post('/register', [
 
   // Send welcome email
   try {
-    await sendEmail({
-      email: user.email,
-      subject: 'Welcome to SearchNorthCyprus!',
-      html: getWelcomeTemplate(user.firstName, user.username)
-    });
+    await sendWelcomeEmail(user);
     console.log('Welcome email sent successfully to:', user.email);
   } catch (error) {
     console.error('Failed to send welcome email:', error);
@@ -702,12 +698,36 @@ router.put('/profile', [
     .withMessage('Please enter a valid phone number'),
   body('preferences.language')
     .optional()
-    .isIn(['en', 'tr'])
-    .withMessage('Language must be en or tr'),
-  body('preferences.currency')
+    .isIn(['en', 'tr', 'es', 'fr', 'gr'])
+    .withMessage('Language must be one of: en, tr, es, fr, gr'),
+  body('preferences.timezone')
     .optional()
-    .isIn(['USD', 'EUR', 'TRY'])
-    .withMessage('Currency must be USD, EUR, or TRY')
+    .isString()
+    .withMessage('Timezone must be a string'),
+  body('preferences.notifications.email')
+    .optional()
+    .isBoolean()
+    .withMessage('Email notifications must be a boolean'),
+  body('preferences.notifications.telegram')
+    .optional()
+    .isBoolean()
+    .withMessage('Telegram notifications must be a boolean'),
+  body('location.city')
+    .optional()
+    .isString()
+    .withMessage('City must be a string'),
+  body('location.region')
+    .optional()
+    .isString()
+    .withMessage('Region must be a string'),
+  body('location.address')
+    .optional()
+    .isString()
+    .withMessage('Address must be a string'),
+  body('bio')
+    .optional()
+    .isLength({ max: 500 })
+    .withMessage('Bio cannot exceed 500 characters')
 ], asyncHandler(async (req, res, next) => {
   // Check for validation errors
   const errors = validationResult(req);
@@ -719,9 +739,14 @@ router.put('/profile', [
     'firstName',
     'lastName',
     'phone',
+    'bio',
     'location',
     'preferences'
   ];
+
+  console.log('🔍 PROFILE UPDATE - Request body:', JSON.stringify(req.body, null, 2));
+  console.log('🔍 PROFILE UPDATE - User ID:', req.user.id);
+  console.log('🔍 PROFILE UPDATE - Allowed fields:', allowedFields);
 
   const updateData = {};
   Object.keys(req.body).forEach(key => {
@@ -729,6 +754,8 @@ router.put('/profile', [
       updateData[key] = req.body[key];
     }
   });
+
+  console.log('🔍 PROFILE UPDATE - Update data:', JSON.stringify(updateData, null, 2));
 
   const user = await User.findByIdAndUpdate(
     req.user.id,
@@ -738,6 +765,9 @@ router.put('/profile', [
       runValidators: true
     }
   ).select('-password');
+
+  console.log('✅ PROFILE UPDATE - Database updated, returning user:', user ? 'User found' : 'No user');
+  console.log('✅ PROFILE UPDATE - Updated user data:', JSON.stringify(user?.toObject(), null, 2));
 
   res.status(200).json({
     success: true,
@@ -811,36 +841,62 @@ router.post('/forgot-password', [
   const resetToken = crypto.randomBytes(20).toString('hex');
 
   // Hash token and set to user
-  user.passwordResetToken = crypto
+  user.resetPasswordToken = crypto
     .createHash('sha256')
     .update(resetToken)
     .digest('hex');
 
-  // Set expire to 10 minutes
-  user.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+  // Set expire to 30 minutes (increased from 10 minutes)
+  user.resetPasswordExpire = Date.now() + 30 * 60 * 1000;
 
+  console.log('Before saving token to database:', {
+    email: user.email,
+    hashedToken: user.resetPasswordToken.substring(0, 10) + '...',
+    expiresAt: new Date(user.resetPasswordExpire).toISOString()
+  });
+  
   await user.save({ validateBeforeSave: false });
+  
+  console.log('Token saved successfully to database for user:', user.email);
 
-  // Create reset URL
-  const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+  // Immediately verify the token was saved by querying the database
+  const verifyUser = await User.findById(user._id).select('resetPasswordToken resetPasswordExpire email');
+  console.log('Verification after save - Token in database:', {
+    email: verifyUser.email,
+    hasStoredToken: !!verifyUser.resetPasswordToken,
+    storedTokenHash: verifyUser.resetPasswordToken ? verifyUser.resetPasswordToken.substring(0, 10) + '...' : 'none',
+    expiresAt: verifyUser.resetPasswordExpire ? new Date(verifyUser.resetPasswordExpire).toISOString() : 'none'
+  });
+
+  // Create reset URL using request host
+  const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+  const host = req.headers.host || req.headers['x-forwarded-host'] || 'localhost:3000';
+  const resetUrl = `${protocol}://${host}/reset-password/${resetToken}`;
+  
+  console.log('Password reset request details:', {
+    email: user.email,
+    resetUrl: resetUrl,
+    tokenExpires: new Date(user.resetPasswordExpire).toISOString()
+  });
 
   // Send password reset email
   try {
-    await sendEmail({
-      email: user.email,
-      subject: 'Password Reset Request - SearchNorthCyprus',
-      html: getPasswordResetTemplate(resetUrl, user.firstName)
-    });
+    await sendPasswordResetEmail(user, resetToken, resetUrl);
     console.log('Password reset email sent successfully to:', user.email);
   } catch (error) {
     console.error('Failed to send password reset email:', error);
     
-    // Reset the token fields if email fails
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
-    await user.save({ validateBeforeSave: false });
-    
-    return next(validationError('Email could not be sent. Please try again later.'));
+    // In development, don't clear the token to allow testing
+    if (process.env.NODE_ENV !== 'development' && process.env.NODE_ENV) {
+      // Reset the token fields if email fails in production
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save({ validateBeforeSave: false });
+      
+      return next(validationError('Email could not be sent. Please try again later.'));
+    } else {
+      console.log('Development mode: Token preserved despite email failure');
+    }
   }
 
   res.status(200).json({
@@ -869,23 +925,81 @@ router.put('/reset-password/:resettoken', [
     .update(req.params.resettoken)
     .digest('hex');
 
+  console.log('Reset password attempt:', {
+    originalToken: req.params.resettoken,
+    hashedToken: resetPasswordToken,
+    currentTime: new Date(Date.now()).toISOString()
+  });
+
   const user = await User.findOne({
-    passwordResetToken: resetPasswordToken,
-    passwordResetExpires: { $gt: Date.now() }
+    resetPasswordToken: resetPasswordToken,
+    resetPasswordExpire: { $gt: Date.now() }
   });
 
   if (!user) {
-    return next(validationError('Invalid or expired reset token'));
+    // Check if token exists but expired
+    const expiredUser = await User.findOne({
+      resetPasswordToken: resetPasswordToken
+    });
+    
+    if (expiredUser) {
+      console.log('Token found but expired:', {
+        tokenExpires: new Date(expiredUser.passwordResetExpires).toISOString(),
+        currentTime: new Date(Date.now()).toISOString()
+      });
+      return next(validationError('Reset token has expired. Please request a new password reset.'));
+    } else {
+      console.log('No user found with token:', resetPasswordToken);
+      return next(validationError('Invalid reset token. Please request a new password reset.'));
+    }
   }
+
+  console.log('Valid token found for user:', user.email);
 
   // Set new password
   user.password = req.body.password;
-  user.passwordResetToken = undefined;
-  user.passwordResetExpires = undefined;
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpire = undefined;
   await user.save();
 
   sendTokenResponse(user, 200, res, 'Password reset successful');
 }));
+
+// @desc    Debug reset token (development only)
+// @route   GET /api/auth/debug-token/:resettoken
+// @access  Public (development only)
+if (process.env.NODE_ENV === 'development') {
+  router.get('/debug-token/:resettoken', asyncHandler(async (req, res) => {
+    const resetPasswordToken = crypto
+      .createHash('sha256')
+      .update(req.params.resettoken)
+      .digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken: resetPasswordToken
+    });
+
+    if (!user) {
+      return res.json({
+        success: false,
+        message: 'No user found with this token',
+        hashedToken: resetPasswordToken,
+        originalToken: req.params.resettoken
+      });
+    }
+
+    const isExpired = user.resetPasswordExpire < Date.now();
+
+    return res.json({
+      success: true,
+      user: user.email,
+      tokenExpires: new Date(user.resetPasswordExpire).toISOString(),
+      currentTime: new Date(Date.now()).toISOString(),
+      isExpired,
+      minutesRemaining: isExpired ? 0 : Math.round((user.resetPasswordExpire - Date.now()) / (1000 * 60))
+    });
+  }));
+}
 
 // @desc    Logout user / clear cookie
 // @route   POST /api/auth/logout

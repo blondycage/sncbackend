@@ -70,12 +70,12 @@ const jobSchema = new mongoose.Schema({
   requirements: [{
     type: String,
     trim: true,
-    maxlength: [200, 'Each requirement cannot exceed 200 characters']
+    maxlength: [500, 'Each requirement cannot exceed 500 characters']
   }],
   benefits: [{
     type: String,
     trim: true,
-    maxlength: [200, 'Each benefit cannot exceed 200 characters']
+    maxlength: [500, 'Each benefit cannot exceed 500 characters']
   }],
   
   // Location information

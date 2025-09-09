@@ -94,9 +94,9 @@ router.get('/programs', [
     query.field = field;
   }
 
-  // City filter
+  // City filter - case-insensitive matching
   if (city) {
-    query['location.city'] = city;
+    query['location.city'] = { $regex: new RegExp(`^${city}$`, 'i') };
   }
 
   // Tuition range filter
@@ -111,13 +111,16 @@ router.get('/programs', [
     query.featured = featured === 'true';
   }
 
-  // Text search
+  // Text search - comprehensive search across multiple fields
   if (search) {
     query.$or = [
-      { title: new RegExp(search, 'i') },
-      { description: new RegExp(search, 'i') },
-      { 'institution.name': new RegExp(search, 'i') },
-      { tags: new RegExp(search, 'i') }
+      { title: { $regex: search, $options: 'i' } },
+      { description: { $regex: search, $options: 'i' } },
+      { 'institution.name': { $regex: search, $options: 'i' } },
+      { tags: { $regex: search, $options: 'i' } },
+      { level: { $regex: search, $options: 'i' } },
+      { fieldOfStudy: { $regex: search, $options: 'i' } },
+      { 'location.city': { $regex: search, $options: 'i' } }
     ];
   }
 

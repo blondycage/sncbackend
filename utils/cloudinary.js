@@ -16,17 +16,32 @@ cloudinary.config({
  */
 const uploadToCloudinary = (buffer, options = {}) => {
   return new Promise((resolve, reject) => {
-    const defaultOptions = {
+    // Create base options without format settings
+    const baseOptions = {
       folder: 'listings',
       resource_type: 'image',
-      format: 'auto',
       quality: 'auto:good',
-      fetch_format: 'auto',
       transformation: [
         { width: 1200, height: 800, crop: 'limit' },
-        { quality: 'auto:good' },
-        { format: 'auto' }
-      ],
+        { quality: 'auto:good' }
+      ]
+    };
+
+    // Only add format settings if they're not explicitly set to undefined
+    if (options.format !== undefined) {
+      baseOptions.format = options.format || 'auto';
+    }
+    if (options.fetch_format !== undefined) {
+      baseOptions.fetch_format = options.fetch_format || 'auto';
+    }
+
+    // Add format to transformation only if not disabled
+    if (options.format !== undefined && baseOptions.transformation && Array.isArray(baseOptions.transformation)) {
+      baseOptions.transformation.push({ format: options.format || 'auto' });
+    }
+
+    const defaultOptions = {
+      ...baseOptions,
       ...options
     };
 

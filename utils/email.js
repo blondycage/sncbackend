@@ -4,25 +4,27 @@ const nodemailer = require('nodemailer');
 let transporter;
 
 const createTransporter = () => {
-  if (process.env.NODE_ENV === 'production') {
-    // Use SendGrid in production
-    transporter = nodemailer.createTransporter({
-      service: 'SendGrid',
-      auth: {
-        user: 'apikey',
-        pass: process.env.SENDGRID_API_KEY
-      }
-    });
-  } else {
-    // Use Gmail or similar for development
-    transporter = nodemailer.createTransporter({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_FROM,
-        pass: process.env.EMAIL_PASSWORD
-      }
-    });
+  // Check if Zoho credentials are available
+  if (!process.env.ZOHO_EMAIL || !process.env.ZOHO_APP_PASSWORD) {
+    console.log('📧 Email service disabled - missing Zoho SMTP credentials');
+    return null;
   }
+ 
+  // Use Zoho SMTP for all environments
+  transporter = nodemailer.createTransport({
+    host: 'smtp.zoho.com',
+    port: 587,
+    secure: false, // Use TLS
+    auth: {
+      user: process.env.ZOHO_EMAIL,
+      pass: process.env.ZOHO_APP_PASSWORD
+    },
+    tls: {
+      rejectUnauthorized: false
+    },
+    debug: true,
+    logger: true
+  });
   
   return transporter;
 };
@@ -38,8 +40,14 @@ const sendEmail = async (options) => {
       transporter = createTransporter();
     }
 
+    // If transporter is null (development mode), just log and return
+    if (!transporter) {
+      console.log(`📧 [DEV MODE] Would send email to ${options.to}: ${options.subject}`);
+      return { messageId: 'dev-mode-' + Date.now() };
+    }
+
     const mailOptions = {
-      from: `${process.env.FROM_NAME} <${process.env.EMAIL_FROM}>`,
+      from: `SearchNorthCyprus <admin@searchnorthcyprus.org>`,
       to: options.to,
       subject: options.subject,
       text: options.text,
@@ -47,10 +55,17 @@ const sendEmail = async (options) => {
     };
 
     const result = await transporter.sendMail(mailOptions);
-    console.log('Email sent successfully:', result.messageId);
+    console.log('📧 Email sent successfully:', result.messageId);
     return result;
   } catch (error) {
-    console.error('Email sending failed:', error);
+    console.error('❌ Email sending failed:', error.message);
+    
+    // In development, don't throw error to avoid breaking functionality
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`📧 [DEV MODE] Email failed but continuing anyway: ${options.subject}`);
+      return { messageId: 'dev-failed-' + Date.now() };
+    }
+    
     throw new Error(`Email could not be sent: ${error.message}`);
   }
 };

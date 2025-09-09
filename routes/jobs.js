@@ -57,7 +57,7 @@ router.get('/', [
   // Apply filters
   if (jobType) query.jobType = jobType;
   if (workLocation) query.workLocation = workLocation;
-  if (city) query['location.city'] = new RegExp(city, 'i');
+  if (city) query['location.city'] = { $regex: new RegExp(`^${city}$`, 'i') };
   if (region) query['location.region'] = new RegExp(region, 'i');
   
   if (minSalary !== undefined) {
@@ -68,7 +68,15 @@ router.get('/', [
   }
 
   if (search) {
-    query.$text = { $search: search };
+    // Enhanced search to include title, role, description, company, and location
+    query.$or = [
+      { title: { $regex: search, $options: 'i' } },
+      { role: { $regex: search, $options: 'i' } },
+      { description: { $regex: search, $options: 'i' } },
+      { 'company.name': { $regex: search, $options: 'i' } },
+      { 'location.city': { $regex: search, $options: 'i' } },
+      { 'location.region': { $regex: search, $options: 'i' } }
+    ];
   }
 
   console.log('🔍 Query being executed:', query);

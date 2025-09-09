@@ -10,6 +10,7 @@ const EducationalProgram = require('../models/EducationalProgram');
 const Application = require('../models/Application');
 const { protect, adminOnly } = require('../middleware/auth');
 const { asyncHandler, validationError, notFoundError, authorizationError } = require('../middleware/errorHandler');
+const { sendServicePaymentApprovedEmail, sendServicePaymentRejectedEmail } = require('../services/emailService');
 
 // Utils
 async function getConfigOrDefault() {
@@ -332,8 +333,28 @@ router.put('/admin/:id/status', [
     
     // Activate the paid service
     await activatePaymentService(payment);
+
+    // Send approval email for service payments
+    if (payment.paymentType === 'service_payment') {
+      try {
+        await payment.populate('user', 'firstName lastName email');
+        await sendServicePaymentApprovedEmail(payment.user, payment);
+      } catch (error) {
+        console.error('Failed to send service payment approval email:', error);
+      }
+    }
   } else if (status === 'rejected') {
     await payment.rejectPayment(req.user._id, notes);
+
+    // Send rejection email for service payments
+    if (payment.paymentType === 'service_payment') {
+      try {
+        await payment.populate('user', 'firstName lastName email');
+        await sendServicePaymentRejectedEmail(payment.user, payment, notes || 'Payment verification failed');
+      } catch (error) {
+        console.error('Failed to send service payment rejection email:', error);
+      }
+    }
   } else {
     await payment.updateStatus(status, notes, req.user._id);
   }

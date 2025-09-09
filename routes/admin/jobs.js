@@ -6,6 +6,7 @@ const Job = require('../../models/Job');
 const User = require('../../models/User');
 const { protect, adminOnly } = require('../../middleware/auth');
 const { asyncHandler, validationError, notFoundError } = require('../../middleware/errorHandler');
+const { sendJobApprovedEmail, sendJobRejectedEmail } = require('../../services/emailService');
 
 // @desc    Get all jobs for admin (including pending)
 // @route   GET /api/admin/jobs
@@ -210,6 +211,17 @@ router.patch('/:id/moderate', [
       { path: 'postedBy', select: 'username firstName lastName email' },
       { path: 'moderatedBy', select: 'username firstName lastName' }
     ]);
+
+    // Send notification email to job poster
+    try {
+      if (req.body.moderationStatus === 'approved') {
+        await sendJobApprovedEmail(job.postedBy, job);
+      } else {
+        await sendJobRejectedEmail(job.postedBy, job, req.body.moderationNotes);
+      }
+    } catch (error) {
+      console.error('Failed to send job moderation notification email:', error);
+    }
 
     console.log('✅ Job moderated successfully:', job.moderationStatus);
 

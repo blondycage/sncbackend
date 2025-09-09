@@ -129,49 +129,6 @@ const listingSchema = new mongoose.Schema({
       values: ['hourly', 'daily', 'weekly', 'monthly', 'fixed',"negotiable","free","yearly"],
       message: '{VALUE} is not a valid pricing frequency'
     },
-    validate: {
-      validator: function(value) {
-        console.log('🔍 PRICING FREQUENCY VALIDATION:', {
-          value: value,
-          type: typeof value,
-          category: this.category,
-          allValidValues: ['hourly', 'daily', 'weekly', 'monthly', 'fixed',"negotiable","free","yearly"]
-        });
-        
-        // Validate pricing frequency based on category
-        if (this.category === 'rental') {
-          const valid = ['daily', 'weekly', 'monthly',"yearly","negotiable"].includes(value);
-          console.log('🔍 RENTAL PRICING VALIDATION:', {
-            value: value,
-            validOptions: ['daily', 'weekly', 'monthly',"yearly","negotiable"],
-            isValid: valid
-          });
-          return valid;
-        } else if (this.category === 'service') {
-          const valid = ['hourly', 'daily', 'fixed',"negotiable","free","yearly"].includes(value);
-          console.log('🔍 SERVICE PRICING VALIDATION:', {
-            value: value,
-            validOptions: ['hourly', 'daily', 'fixed',"negotiable","free","yearly"],
-            isValid: valid
-          });
-          return valid;
-        } else if (this.category === 'sale') {
-          const valid = value === 'fixed' || value === 'negotiable' ;
-          console.log('🔍 SALE PRICING VALIDATION:', {
-            value: value,
-            validOptions: ['fixed',"negotiable"],
-            isValid: valid
-          });
-          return valid;
-        }
-        console.log('🔍 PRICING FREQUENCY - NO CATEGORY MATCH:', {
-          category: this.category,
-          value: value
-        });
-        return false;
-      },
-      message: 'Invalid pricing frequency for the selected category'
-    }
   },
   
   // Image URLs

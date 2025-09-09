@@ -98,6 +98,11 @@ const userSchema = new mongoose.Schema({
     type: String, // Cloudinary URL
     default: null
   },
+  bio: {
+    type: String,
+    maxlength: [500, 'Bio cannot exceed 500 characters'],
+    trim: true
+  },
   
   // Location information
   location: {
@@ -106,6 +111,14 @@ const userSchema = new mongoose.Schema({
       trim: true
     },
     region: {
+      type: String,
+      trim: true
+    },
+    country: {
+      type: String,
+      trim: true
+    },
+    address: {
       type: String,
       trim: true
     },

@@ -10,7 +10,7 @@ const Application = require('../models/Application');
 const Blog = require('../models/Blog');
 const { protect, adminOnly, createRateLimit } = require('../middleware/auth');
 const { asyncHandler, validationError, notFoundError } = require('../middleware/errorHandler');
-const { sendEmail } = require('../utils/email');
+const { sendListingApprovedEmail, sendListingRejectedEmail } = require('../services/emailService');
 const isAdmin = require('../middleware/isAdmin');
 
 // Import admin sub-routes
@@ -181,6 +181,15 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
     { $group: { _id: null, total: { $sum: '$premiumSubscription.amount' } } }
   ]);
 
+  // Promotions statistics (based on moderationStatus)
+  let promotionsStats = { activeByModeration: 0 };
+  try {
+    const Promotion = require('../models/Promotion');
+    promotionsStats.activeByModeration = await Promotion.countDocuments({ moderationStatus: 'approved', status: { $ne: 'expired' } });
+  } catch (e) {
+    // If promotions model not available, keep default 0
+  }
+
   res.status(200).json({
     success: true,
     data: {
@@ -235,7 +244,8 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
         users: recentUsers,
         listings: recentListings,
         jobs: recentJobs
-      }
+      },
+      promotions: promotionsStats
     }
   });
 }));
@@ -684,22 +694,11 @@ router.put('/listings/:id/moderate', [
 
   // Send notification email to listing owner
   try {
-    const subject = action === 'approve' ? 'Listing Approved' : 'Listing Rejected';
-    const message = action === 'approve' 
-      ? 'Your listing has been approved and is now live on SearchNorthCyprus.'
-      : `Your listing has been rejected. ${reason ? `Reason: ${reason}` : ''}`;
-
-    await sendEmail({
-      to: listing.owner.email,
-      subject: `${subject} - SearchNorthCyprus`,
-      text: message,
-      html: `
-        <h2>${subject}</h2>
-        <p><strong>Listing:</strong> ${listing.title}</p>
-        <p>${message}</p>
-        ${action === 'reject' ? '<p>You can edit and resubmit your listing for review.</p>' : ''}
-      `
-    });
+    if (action === 'approve') {
+      await sendListingApprovedEmail(listing.owner, listing);
+    } else {
+      await sendListingRejectedEmail(listing.owner, listing, reason);
+    }
   } catch (error) {
     console.error('Failed to send moderation notification email:', error);
   }

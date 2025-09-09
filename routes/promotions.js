@@ -8,6 +8,7 @@ const PromotionConfig = require('../models/PromotionConfig');
 const Listing = require('../models/Listing');
 const { protect, adminOnly, createRateLimit } = require('../middleware/auth');
 const { asyncHandler, validationError, notFoundError, authorizationError } = require('../middleware/errorHandler');
+const { sendPromotionApprovedEmail, sendPromotionRejectedEmail } = require('../services/emailService');
 
 // Utils
 async function getConfigOrDefault() {
@@ -51,13 +52,6 @@ router.post('/', [
   if (listing.owner.toString() !== req.user._id.toString()) return next(authorizationError('Not your listing'));
   if (listing.moderationStatus !== 'approved' || listing.status !== 'active') return next(validationError('Listing must be approved and active'));
 
-  // Prevent duplicate active/pending for same placement
-  const existing = await Promotion.findOne({ listing: listing._id, placement, status: { $in: ['awaiting_payment','submitted','under_review','active'] } });
-  if (existing) return next(validationError('There is already a promotion in progress for this placement'));
-
-  const cfg = await getConfigOrDefault();
-  const { amount, currency } = computePrice(cfg, placement, parseInt(durationDays));
-  
   // Map display chain names to internal wallet keys
   const chainToWalletKey = {
     'bitcoin': 'btc',
@@ -68,6 +62,37 @@ router.post('/', [
     'usdt_trc20': 'usdt_trc20',
     'other': 'other'
   };
+
+  // Prevent duplicate active/pending for same placement
+  const existing = await Promotion.findOne({ listing: listing._id, placement, status: { $in: ['awaiting_payment','submitted','under_review','active'] } });
+  if (existing) {
+    // Return the existing promotion instead of an error
+    const cfg = await getConfigOrDefault();
+    const walletKey = chainToWalletKey[chain] || chain;
+    const walletAddress = cfg.wallets?.[walletKey] || '';
+    
+    let qrDataUrl = '';
+    try { qrDataUrl = await QRCode.toDataURL(walletAddress || ''); } catch {}
+    
+    return res.status(200).json({
+      success: true,
+      existingPromotion: true,
+      message: 'You have an existing promotion for this placement. Continue with the payment process.',
+      data: { 
+        promotion: existing, 
+        payment: { 
+          walletAddress, 
+          amount: existing.pricing.amount, 
+          currency: existing.pricing.currency, 
+          chain: existing.pricing.chain, 
+          qrDataUrl 
+        } 
+      }
+    });
+  }
+
+  const cfg = await getConfigOrDefault();
+  const { amount, currency } = computePrice(cfg, placement, parseInt(durationDays));
   
   const walletKey = chainToWalletKey[chain] || chain;
   const walletAddress = cfg.wallets?.[walletKey] || '';
@@ -202,6 +227,20 @@ router.patch('/admin/promotions/:id/status', [protect, adminOnly, body('action')
   if (action === 'reject') {
     promo.status = 'rejected';
     await promo.save();
+
+    // Populate user and listing data for email
+    await promo.populate([
+      { path: 'owner', select: 'username firstName lastName email' },
+      { path: 'listing', select: 'title category' }
+    ]);
+
+    // Send rejection email
+    try {
+      await sendPromotionRejectedEmail(promo.owner, promo, 'Payment verification failed or invalid transaction details');
+    } catch (error) {
+      console.error('Failed to send promotion rejection email:', error);
+    }
+
     return res.json({ success: true, message: 'Promotion rejected', data: promo });
   }
 
@@ -221,6 +260,20 @@ router.patch('/admin/promotions/:id/status', [protect, adminOnly, body('action')
   promo.payment.verifiedAt = new Date();
   promo.payment.reviewer = req.user._id;
   await promo.save();
+
+  // Populate user and listing data for email
+  await promo.populate([
+    { path: 'owner', select: 'username firstName lastName email' },
+    { path: 'listing', select: 'title category' }
+  ]);
+
+  // Send approval email
+  try {
+    await sendPromotionApprovedEmail(promo.owner, promo);
+  } catch (error) {
+    console.error('Failed to send promotion approval email:', error);
+  }
+
   res.json({ success: true, message: 'Promotion approved', data: promo });
 }));
 
