@@ -176,52 +176,55 @@ const checkUploadQuota = async (req, res, next) => {
 };
 
 // Owner or admin middleware (for listing management)
-const ownerOrAdmin = async (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({
-      success: false,
-      message: 'Authentication required'
-    });
-  }
-
-  try {
-    const listingId = req.params.id || req.params.listingId;
-    
-    if (!listingId) {
-      return res.status(400).json({
+const ownerOrAdmin = (Model = null) => {
+  return async (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
         success: false,
-        message: 'Listing ID required'
+        message: 'Authentication required'
       });
     }
 
-    const Listing = require('../models/Listing');
-    const listing = await Listing.findById(listingId);
+    try {
+      const itemId = req.params.id || req.params.listingId;
 
-    if (!listing) {
-      return res.status(404).json({
+      if (!itemId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Item ID required'
+        });
+      }
+
+      // Use provided Model or default to Listing
+      const ItemModel = Model || require('../models/Listing');
+      const item = await ItemModel.findById(itemId);
+
+      if (!item) {
+        return res.status(404).json({
+          success: false,
+          message: `${ItemModel.modelName || 'Item'} not found`
+        });
+      }
+
+      // Check if user is owner or admin
+      if (item.owner.toString() !== req.user._id.toString() && !req.user.isAdmin) {
+        return res.status(403).json({
+          success: false,
+          message: `Not authorized to access this ${ItemModel.modelName || 'item'}`
+        });
+      }
+
+      // Add item to request for use in route handler
+      req.listing = item; // Keep same property name for backward compatibility
+      next();
+    } catch (error) {
+      console.error('Owner or admin check error:', error);
+      return res.status(500).json({
         success: false,
-        message: 'Listing not found'
+        message: 'Error checking ownership'
       });
     }
-
-    // Check if user is owner or admin
-    if (listing.owner.toString() !== req.user._id.toString() && !req.user.isAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to access this listing'
-      });
-    }
-
-    // Add listing to request for use in route handler
-    req.listing = listing;
-    next();
-  } catch (error) {
-    console.error('Owner or admin check error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error checking listing ownership'
-    });
-  }
+  };
 };
 
 // Rate limiting for specific endpoints

@@ -19,6 +19,7 @@ const adminListingsRoutes = require('./admin/listings.routes');
 const adminJobsRoutes = require('./admin/jobs');
 const adminEducationRoutes = require('./admin/education.routes');
 const adminBlogRoutes = require('./admin/blog.routes');
+const adminDormitoriesRoutes = require('./admin/dormitories.routes');
 
 // Apply admin middleware to all routes (rate limits disabled per request)
 router.use(protect);
@@ -30,6 +31,7 @@ router.use('/listings', adminListingsRoutes);
 router.use('/jobs', adminJobsRoutes);
 router.use('/education', adminEducationRoutes);
 router.use('/blog', adminBlogRoutes);
+router.use('/dormitories', adminDormitoriesRoutes);
 
 // @desc    Get admin dashboard statistics
 // @route   GET /api/admin/dashboard

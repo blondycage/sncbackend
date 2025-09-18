@@ -25,6 +25,7 @@ const userRoutes = require('./routes/users');
 const blogRoutes = require('./routes/blog');
 const paymentRoutes = require('./routes/payments');
 const subscriberRoutes = require('./routes/subscribers');
+const dormitoryRoutes = require('./routes/dormitories');
 
 // Import middleware
 const { errorHandler, notFound } = require('./middleware/errorHandler');
@@ -46,19 +47,14 @@ app.use(helmet({
 
 // CORS configuration
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like curl or mobile apps)
     if (!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      process.env.CLIENT_URL || 'http://localhost:3000',
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:3004',
-      'http://172.20.10.3:3000'
-    ];
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
+
+    // Regex for localhost with any port
+    const localhostRegex = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
+    if (localhostRegex.test(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -68,6 +64,7 @@ const corsOptions = {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
 };
+
 
 app.use(cors(corsOptions));
 
@@ -189,7 +186,8 @@ app.get('/api/status', (req, res) => {
       listings: '/api/listings',
       jobs: '/api/jobs',
       admin: '/api/admin',
-      education: '/api/education'
+      education: '/api/education',
+      dormitories: '/api/dormitories'
     }
   });
 });
@@ -206,6 +204,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/blog', blogRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/subscribers', subscriberRoutes);
+app.use('/api/dormitories', dormitoryRoutes);
 
 // Serve static files (for uploaded images if not using Cloudinary)
 app.use('/uploads', express.static('uploads'));
@@ -218,7 +217,7 @@ app.get('*', (req, res) => {
   res.status(404).json({
     error: 'Route not found',
     message: 'The requested endpoint does not exist',
-    availableRoutes: ['/api/health', '/api/status', '/api/auth', '/api/listings', '/api/jobs', '/api/admin']
+    availableRoutes: ['/api/health', '/api/status', '/api/auth', '/api/listings', '/api/jobs', '/api/admin', '/api/dormitories']
   });
 });
 
