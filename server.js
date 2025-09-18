@@ -48,13 +48,12 @@ app.use(helmet({
 // CORS configuration
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (like curl or mobile apps)
     if (!origin) return callback(null, true);
 
-    // Regex for localhost with any port
     const localhostRegex = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+    const allowedOrigins = [process.env.CLIENT_URL];
 
-    if (localhostRegex.test(origin)) {
+    if (localhostRegex.test(origin) || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -64,6 +63,7 @@ const corsOptions = {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
 };
+
 
 
 app.use(cors(corsOptions));
