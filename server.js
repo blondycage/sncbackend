@@ -46,24 +46,12 @@ app.use(helmet({
 // Rate limiting disabled per request
 
 // CORS configuration
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-
-    const localhostRegex = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
-    const allowedOrigins = [process.env.CLIENT_URL];
-
-    if (localhostRegex.test(origin) || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
-};
-
+const corsOptions = { origin: function (origin, callback) { 
+  // Allow requests with no origin (like mobile apps or curl requests) 
+  if (!origin) 
+    return callback(null, true); 
+  const allowedOrigins = [ process.env.CLIENT_URL || 'http://localhost:3000', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:3004', 'http://172.20.10.3:3000' ];
+   if (allowedOrigins.indexOf(origin) !== -1) { callback(null, true); } else { callback(new Error('Not allowed by CORS')); } }, credentials: true, methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token'] };
 
 
 app.use(cors(corsOptions));
