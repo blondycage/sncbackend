@@ -65,19 +65,71 @@ router.get('/', [
     query.category = category;
   }
 
-  if (city) {
-    // Case-insensitive city matching
-    query['location.city'] = { $regex: new RegExp(`^${city}$`, 'i') };
-  }
+  // Apply location filter and search query properly
+  if (city && search) {
+    // When both city filter and search are present, combine them with $and
+    query.$and = [
+      { 'location.city': { $regex: new RegExp(`^${city}$`, 'i') } },
+      {
+        $or: [
+          // Core fields
+          { title: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } },
+          { tags: { $regex: search, $options: 'i' } },
 
-  if (search) {
-    // Enhanced search to include title, description, tags, and location
+          // Type and category fields
+          { listingType: { $regex: search, $options: 'i' } },
+          { category: { $regex: search, $options: 'i' } },
+          { pricing_frequency: { $regex: search, $options: 'i' } },
+
+          // Location fields (excluding city since it's filtered separately)
+          { 'location.area': { $regex: search, $options: 'i' } },
+          { 'location.region': { $regex: search, $options: 'i' } },
+          { 'location.address': { $regex: search, $options: 'i' } },
+
+          // Contact information
+          { 'contact.phone': { $regex: search, $options: 'i' } },
+          { 'contact.email': { $regex: search, $options: 'i' } },
+          { 'contact.preferredMethod': { $regex: search, $options: 'i' } },
+
+          // Status fields (for admin searches)
+          { status: { $regex: search, $options: 'i' } },
+          { moderationStatus: { $regex: search, $options: 'i' } },
+          { moderationNotes: { $regex: search, $options: 'i' } }
+        ]
+      }
+    ];
+  } else if (city) {
+    // Only city filter
+    query['location.city'] = { $regex: new RegExp(`^${city}$`, 'i') };
+  } else if (search) {
+    // Only search query
     query.$or = [
+      // Core fields
       { title: { $regex: search, $options: 'i' } },
       { description: { $regex: search, $options: 'i' } },
       { tags: { $regex: search, $options: 'i' } },
+
+      // Type and category fields
+      { listingType: { $regex: search, $options: 'i' } },
+      { category: { $regex: search, $options: 'i' } },
+      { pricing_frequency: { $regex: search, $options: 'i' } },
+
+      // Location fields
       { 'location.city': { $regex: search, $options: 'i' } },
-      { 'location.area': { $regex: search, $options: 'i' } }
+      { 'location.area': { $regex: search, $options: 'i' } },
+      { 'location.region': { $regex: search, $options: 'i' } },
+      { 'location.address': { $regex: search, $options: 'i' } },
+
+      // Contact information
+      { 'contact.phone': { $regex: search, $options: 'i' } },
+      { 'contact.email': { $regex: search, $options: 'i' } },
+      { 'contact.preferredMethod': { $regex: search, $options: 'i' } },
+
+      // Status fields (for admin searches)
+      { status: { $regex: search, $options: 'i' } },
+      { moderationStatus: { $regex: search, $options: 'i' } },
+      { moderationNotes: { $regex: search, $options: 'i' } }
     ];
   }
 
@@ -465,13 +517,33 @@ router.get('/free', [
   }
 
   if (search) {
-    // Enhanced search to include title, description, tags, and location
+    // Comprehensive search across ALL relevant listing fields
     query.$or = [
+      // Core fields
       { title: { $regex: search, $options: 'i' } },
       { description: { $regex: search, $options: 'i' } },
       { tags: { $regex: search, $options: 'i' } },
+
+      // Type and category fields
+      { listingType: { $regex: search, $options: 'i' } },
+      { category: { $regex: search, $options: 'i' } },
+      { pricing_frequency: { $regex: search, $options: 'i' } },
+
+      // Location fields
       { 'location.city': { $regex: search, $options: 'i' } },
-      { 'location.area': { $regex: search, $options: 'i' } }
+      { 'location.area': { $regex: search, $options: 'i' } },
+      { 'location.region': { $regex: search, $options: 'i' } },
+      { 'location.address': { $regex: search, $options: 'i' } },
+
+      // Contact information
+      { 'contact.phone': { $regex: search, $options: 'i' } },
+      { 'contact.email': { $regex: search, $options: 'i' } },
+      { 'contact.preferredMethod': { $regex: search, $options: 'i' } },
+
+      // Status fields (for admin searches)
+      { status: { $regex: search, $options: 'i' } },
+      { moderationStatus: { $regex: search, $options: 'i' } },
+      { moderationNotes: { $regex: search, $options: 'i' } }
     ];
   }
 

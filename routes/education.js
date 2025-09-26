@@ -94,11 +94,6 @@ router.get('/programs', [
     query.field = field;
   }
 
-  // City filter - case-insensitive matching
-  if (city) {
-    query['location.city'] = { $regex: new RegExp(`^${city}$`, 'i') };
-  }
-
   // Tuition range filter
   if (tuitionMin || tuitionMax) {
     query['tuition.amount'] = {};
@@ -111,16 +106,99 @@ router.get('/programs', [
     query.featured = featured === 'true';
   }
 
-  // Text search - comprehensive search across multiple fields
-  if (search) {
+  // Apply location filter and search query properly
+  if (city && search) {
+    // When both city filter and search are present, combine them with $and
+    query.$and = [
+      { 'location.city': { $regex: new RegExp(`^${city}$`, 'i') } },
+      {
+        $or: [
+          // Core program fields
+          { title: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } },
+          { level: { $regex: search, $options: 'i' } },
+          { fieldOfStudy: { $regex: search, $options: 'i' } },
+          { tags: { $regex: search, $options: 'i' } },
+
+          // Institution information
+          { 'institution.name': { $regex: search, $options: 'i' } },
+          { 'institution.website': { $regex: search, $options: 'i' } },
+
+          // Location fields (excluding city since it's filtered separately)
+          { 'location.address': { $regex: search, $options: 'i' } },
+          { 'location.campus': { $regex: search, $options: 'i' } },
+
+          // Language and academic information
+          { 'language.instruction': { $regex: search, $options: 'i' } },
+          { 'language.requirements': { $regex: search, $options: 'i' } },
+          { 'duration.unit': { $regex: search, $options: 'i' } },
+          { 'tuition.currency': { $regex: search, $options: 'i' } },
+          { 'tuition.period': { $regex: search, $options: 'i' } },
+
+          // Admission requirements
+          { 'admissionRequirements.academicRequirements': { $regex: search, $options: 'i' } },
+          { 'admissionRequirements.languageRequirements': { $regex: search, $options: 'i' } },
+          { 'admissionRequirements.documentsRequired': { $regex: search, $options: 'i' } },
+          { 'admissionRequirements.additionalRequirements': { $regex: search, $options: 'i' } },
+
+          // Contact information
+          { 'contactInfo.email': { $regex: search, $options: 'i' } },
+          { 'contactInfo.phone': { $regex: search, $options: 'i' } },
+          { 'contactInfo.website': { $regex: search, $options: 'i' } },
+          { 'contactInfo.admissionsOffice': { $regex: search, $options: 'i' } },
+
+          // Status and moderation fields (for admin searches)
+          { status: { $regex: search, $options: 'i' } },
+          { moderationStatus: { $regex: search, $options: 'i' } },
+          { moderationNotes: { $regex: search, $options: 'i' } }
+        ]
+      }
+    ];
+  } else if (city) {
+    // Only city filter
+    query['location.city'] = { $regex: new RegExp(`^${city}$`, 'i') };
+  } else if (search) {
+    // Only search query
     query.$or = [
+      // Core program fields
       { title: { $regex: search, $options: 'i' } },
       { description: { $regex: search, $options: 'i' } },
-      { 'institution.name': { $regex: search, $options: 'i' } },
-      { tags: { $regex: search, $options: 'i' } },
       { level: { $regex: search, $options: 'i' } },
       { fieldOfStudy: { $regex: search, $options: 'i' } },
-      { 'location.city': { $regex: search, $options: 'i' } }
+      { tags: { $regex: search, $options: 'i' } },
+
+      // Institution information
+      { 'institution.name': { $regex: search, $options: 'i' } },
+      { 'institution.website': { $regex: search, $options: 'i' } },
+
+      // Location fields
+      { 'location.city': { $regex: search, $options: 'i' } },
+      { 'location.address': { $regex: search, $options: 'i' } },
+      { 'location.campus': { $regex: search, $options: 'i' } },
+
+      // Language and academic information
+      { 'language.instruction': { $regex: search, $options: 'i' } },
+      { 'language.requirements': { $regex: search, $options: 'i' } },
+      { 'duration.unit': { $regex: search, $options: 'i' } },
+      { 'tuition.currency': { $regex: search, $options: 'i' } },
+      { 'tuition.period': { $regex: search, $options: 'i' } },
+
+      // Admission requirements
+      { 'admissionRequirements.academicRequirements': { $regex: search, $options: 'i' } },
+      { 'admissionRequirements.languageRequirements': { $regex: search, $options: 'i' } },
+      { 'admissionRequirements.documentsRequired': { $regex: search, $options: 'i' } },
+      { 'admissionRequirements.additionalRequirements': { $regex: search, $options: 'i' } },
+
+      // Contact information
+      { 'contactInfo.email': { $regex: search, $options: 'i' } },
+      { 'contactInfo.phone': { $regex: search, $options: 'i' } },
+      { 'contactInfo.website': { $regex: search, $options: 'i' } },
+      { 'contactInfo.admissionsOffice': { $regex: search, $options: 'i' } },
+
+      // Status and moderation fields (for admin searches)
+      { status: { $regex: search, $options: 'i' } },
+      { moderationStatus: { $regex: search, $options: 'i' } },
+      { moderationNotes: { $regex: search, $options: 'i' } }
     ];
   }
 

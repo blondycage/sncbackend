@@ -57,9 +57,8 @@ router.get('/', [
   // Apply filters
   if (jobType) query.jobType = jobType;
   if (workLocation) query.workLocation = workLocation;
-  if (city) query['location.city'] = { $regex: new RegExp(`^${city}$`, 'i') };
   if (region) query['location.region'] = new RegExp(region, 'i');
-  
+
   if (minSalary !== undefined) {
     query['salary.min'] = { ...query['salary.min'], $gte: parseFloat(minSalary) };
   }
@@ -67,15 +66,87 @@ router.get('/', [
     query['salary.max'] = { ...query['salary.max'], $lte: parseFloat(maxSalary) };
   }
 
-  if (search) {
-    // Enhanced search to include title, role, description, company, and location
+  // Apply location filter and search query properly
+  if (city && search) {
+    // When both city filter and search are present, combine them with $and
+    query.$and = [
+      { 'location.city': { $regex: new RegExp(`^${city}$`, 'i') } },
+      {
+        $or: [
+          // Core job fields
+          { title: { $regex: search, $options: 'i' } },
+          { role: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } },
+          { requirements: { $regex: search, $options: 'i' } },
+          { benefits: { $regex: search, $options: 'i' } },
+
+          // Job type and work arrangement
+          { jobType: { $regex: search, $options: 'i' } },
+          { workLocation: { $regex: search, $options: 'i' } },
+          { status: { $regex: search, $options: 'i' } },
+
+          // Location fields (excluding city since it's filtered separately)
+          { 'location.region': { $regex: search, $options: 'i' } },
+          { 'location.address': { $regex: search, $options: 'i' } },
+
+          // Company information
+          { 'company.name': { $regex: search, $options: 'i' } },
+          { 'company.website': { $regex: search, $options: 'i' } },
+          { 'company.description': { $regex: search, $options: 'i' } },
+
+          // Contact information
+          { 'contact.email': { $regex: search, $options: 'i' } },
+          { 'contact.phone': { $regex: search, $options: 'i' } },
+
+          // Salary information
+          { 'salary.currency': { $regex: search, $options: 'i' } },
+          { 'salary.frequency': { $regex: search, $options: 'i' } },
+
+          // Moderation fields (for admin searches)
+          { moderationStatus: { $regex: search, $options: 'i' } },
+          { moderationNotes: { $regex: search, $options: 'i' } }
+        ]
+      }
+    ];
+  } else if (city) {
+    // Only city filter
+    query['location.city'] = { $regex: new RegExp(`^${city}$`, 'i') };
+  } else if (search) {
+    // Only search query
     query.$or = [
+      // Core job fields
       { title: { $regex: search, $options: 'i' } },
       { role: { $regex: search, $options: 'i' } },
       { description: { $regex: search, $options: 'i' } },
-      { 'company.name': { $regex: search, $options: 'i' } },
+      { requirements: { $regex: search, $options: 'i' } },
+      { benefits: { $regex: search, $options: 'i' } },
+
+      // Job type and work arrangement
+      { jobType: { $regex: search, $options: 'i' } },
+      { workLocation: { $regex: search, $options: 'i' } },
+      { status: { $regex: search, $options: 'i' } },
+
+      // Location fields
       { 'location.city': { $regex: search, $options: 'i' } },
-      { 'location.region': { $regex: search, $options: 'i' } }
+      { 'location.region': { $regex: search, $options: 'i' } },
+      { 'location.address': { $regex: search, $options: 'i' } },
+
+      // Company information
+      { 'company.name': { $regex: search, $options: 'i' } },
+      { 'company.website': { $regex: search, $options: 'i' } },
+      { 'company.description': { $regex: search, $options: 'i' } },
+
+      // Contact information
+      { 'contact.email': { $regex: search, $options: 'i' } },
+      { 'contact.phone': { $regex: search, $options: 'i' } },
+
+      // Salary information
+      { 'salary.currency': { $regex: search, $options: 'i' } },
+      { 'salary.frequency': { $regex: search, $options: 'i' } },
+
+      // Moderation fields (for admin searches)
+      { moderationStatus: { $regex: search, $options: 'i' } },
+      { moderationNotes: { $regex: search, $options: 'i' } }
     ];
   }
 
