@@ -120,6 +120,18 @@ const listingSchema = new mongoose.Schema({
       message: 'Price validation failed in custom validator'
     }
   },
+
+  // Currency
+  currency: {
+    type: String,
+    required: [true, 'Currency is required'],
+    enum: {
+      values: ['USD', 'EUR', 'GBP', 'TRY'],
+      message: '{VALUE} is not a supported currency'
+    },
+    default: 'USD',
+    uppercase: true
+  },
   
   // Pricing frequency based on category
   pricing_frequency: {
