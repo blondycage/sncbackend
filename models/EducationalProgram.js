@@ -205,7 +205,13 @@ const EducationalProgramSchema = new mongoose.Schema({
 });
 
 // Indexes
-EducationalProgramSchema.index({ title: 'text', description: 'text', 'institution.name': 'text' });
+EducationalProgramSchema.index({
+  title: 'text',
+  description: 'text',
+  'institution.name': 'text',
+  fieldOfStudy: 'text',
+  tags: 'text'
+});
 EducationalProgramSchema.index({ level: 1 });
 EducationalProgramSchema.index({ fieldOfStudy: 1 });
 EducationalProgramSchema.index({ 'location.city': 1 });

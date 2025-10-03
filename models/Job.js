@@ -276,7 +276,10 @@ jobSchema.index({
   title: 'text',
   role: 'text',
   description: 'text',
-  'company.name': 'text'
+  'company.name': 'text',
+  'company.description': 'text',
+  requirements: 'text',
+  benefits: 'text'
 });
 
 // Virtual for salary range display (robust against missing fields)

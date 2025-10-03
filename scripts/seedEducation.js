@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const colors = require('colors');
-require('dotenv').config({ path: '../.env' });
+require('dotenv').config();
 
 const EducationalProgram = require('../models/EducationalProgram');
 const User = require('../models/User');

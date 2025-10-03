@@ -291,10 +291,12 @@ const listingSchema = new mongoose.Schema({
 // Indexes for search and filtering
 listingSchema.index({ category: 1, moderationStatus: 1, status: 1 });
 listingSchema.index({ owner: 1, createdAt: -1 });
-listingSchema.index({ title: 'text', description: 'text' });
+listingSchema.index({ title: 'text', description: 'text', tags: 'text' });
 listingSchema.index({ price: 1 });
 listingSchema.index({ createdAt: -1 });
 listingSchema.index({ expiresAt: 1 });
+listingSchema.index({ listingType: 1 });
+listingSchema.index({ 'location.city': 1 });
 
 // Virtual for checking if listing is expired
 listingSchema.virtual('isExpired').get(function() {

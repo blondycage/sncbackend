@@ -10,6 +10,11 @@ const multer = require('multer');
 const path = require('path');
 const { uploadToCloudinary, validateImage } = require('../utils/cloudinary');
 
+// Helper function to escape regex special characters
+const escapeRegex = (str) => {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
 // Configure multer for memory storage (for Cloudinary uploads)
 const storage = multer.memoryStorage();
 
@@ -109,48 +114,49 @@ router.get('/programs', [
   // Apply location filter and search query properly
   if (city && search) {
     // When both city filter and search are present, combine them with $and
+    const escapedSearch = escapeRegex(search);
     query.$and = [
       { 'location.city': { $regex: new RegExp(`^${city}$`, 'i') } },
       {
         $or: [
           // Core program fields
-          { title: { $regex: search, $options: 'i' } },
-          { description: { $regex: search, $options: 'i' } },
-          { level: { $regex: search, $options: 'i' } },
-          { fieldOfStudy: { $regex: search, $options: 'i' } },
-          { tags: { $regex: search, $options: 'i' } },
+          { title: { $regex: escapedSearch, $options: 'i' } },
+          { description: { $regex: escapedSearch, $options: 'i' } },
+          { level: { $regex: escapedSearch, $options: 'i' } },
+          { fieldOfStudy: { $regex: escapedSearch, $options: 'i' } },
+          { tags: { $regex: escapedSearch, $options: 'i' } },
 
           // Institution information
-          { 'institution.name': { $regex: search, $options: 'i' } },
-          { 'institution.website': { $regex: search, $options: 'i' } },
+          { 'institution.name': { $regex: escapedSearch, $options: 'i' } },
+          { 'institution.website': { $regex: escapedSearch, $options: 'i' } },
 
           // Location fields (excluding city since it's filtered separately)
-          { 'location.address': { $regex: search, $options: 'i' } },
-          { 'location.campus': { $regex: search, $options: 'i' } },
+          { 'location.address': { $regex: escapedSearch, $options: 'i' } },
+          { 'location.campus': { $regex: escapedSearch, $options: 'i' } },
 
           // Language and academic information
-          { 'language.instruction': { $regex: search, $options: 'i' } },
-          { 'language.requirements': { $regex: search, $options: 'i' } },
-          { 'duration.unit': { $regex: search, $options: 'i' } },
-          { 'tuition.currency': { $regex: search, $options: 'i' } },
-          { 'tuition.period': { $regex: search, $options: 'i' } },
+          { 'language.instruction': { $regex: escapedSearch, $options: 'i' } },
+          { 'language.requirements': { $regex: escapedSearch, $options: 'i' } },
+          { 'duration.unit': { $regex: escapedSearch, $options: 'i' } },
+          { 'tuition.currency': { $regex: escapedSearch, $options: 'i' } },
+          { 'tuition.period': { $regex: escapedSearch, $options: 'i' } },
 
           // Admission requirements
-          { 'admissionRequirements.academicRequirements': { $regex: search, $options: 'i' } },
-          { 'admissionRequirements.languageRequirements': { $regex: search, $options: 'i' } },
-          { 'admissionRequirements.documentsRequired': { $regex: search, $options: 'i' } },
-          { 'admissionRequirements.additionalRequirements': { $regex: search, $options: 'i' } },
+          { 'admissionRequirements.academicRequirements': { $regex: escapedSearch, $options: 'i' } },
+          { 'admissionRequirements.languageRequirements': { $regex: escapedSearch, $options: 'i' } },
+          { 'admissionRequirements.documentsRequired': { $regex: escapedSearch, $options: 'i' } },
+          { 'admissionRequirements.additionalRequirements': { $regex: escapedSearch, $options: 'i' } },
 
           // Contact information
-          { 'contactInfo.email': { $regex: search, $options: 'i' } },
-          { 'contactInfo.phone': { $regex: search, $options: 'i' } },
-          { 'contactInfo.website': { $regex: search, $options: 'i' } },
-          { 'contactInfo.admissionsOffice': { $regex: search, $options: 'i' } },
+          { 'contactInfo.email': { $regex: escapedSearch, $options: 'i' } },
+          { 'contactInfo.phone': { $regex: escapedSearch, $options: 'i' } },
+          { 'contactInfo.website': { $regex: escapedSearch, $options: 'i' } },
+          { 'contactInfo.admissionsOffice': { $regex: escapedSearch, $options: 'i' } },
 
           // Status and moderation fields (for admin searches)
-          { status: { $regex: search, $options: 'i' } },
-          { moderationStatus: { $regex: search, $options: 'i' } },
-          { moderationNotes: { $regex: search, $options: 'i' } }
+          { status: { $regex: escapedSearch, $options: 'i' } },
+          { moderationStatus: { $regex: escapedSearch, $options: 'i' } },
+          { moderationNotes: { $regex: escapedSearch, $options: 'i' } }
         ]
       }
     ];
@@ -159,46 +165,47 @@ router.get('/programs', [
     query['location.city'] = { $regex: new RegExp(`^${city}$`, 'i') };
   } else if (search) {
     // Only search query
+    const escapedSearch = escapeRegex(search);
     query.$or = [
       // Core program fields
-      { title: { $regex: search, $options: 'i' } },
-      { description: { $regex: search, $options: 'i' } },
-      { level: { $regex: search, $options: 'i' } },
-      { fieldOfStudy: { $regex: search, $options: 'i' } },
-      { tags: { $regex: search, $options: 'i' } },
+      { title: { $regex: escapedSearch, $options: 'i' } },
+      { description: { $regex: escapedSearch, $options: 'i' } },
+      { level: { $regex: escapedSearch, $options: 'i' } },
+      { fieldOfStudy: { $regex: escapedSearch, $options: 'i' } },
+      { tags: { $regex: escapedSearch, $options: 'i' } },
 
       // Institution information
-      { 'institution.name': { $regex: search, $options: 'i' } },
-      { 'institution.website': { $regex: search, $options: 'i' } },
+      { 'institution.name': { $regex: escapedSearch, $options: 'i' } },
+      { 'institution.website': { $regex: escapedSearch, $options: 'i' } },
 
       // Location fields
-      { 'location.city': { $regex: search, $options: 'i' } },
-      { 'location.address': { $regex: search, $options: 'i' } },
-      { 'location.campus': { $regex: search, $options: 'i' } },
+      { 'location.city': { $regex: escapedSearch, $options: 'i' } },
+      { 'location.address': { $regex: escapedSearch, $options: 'i' } },
+      { 'location.campus': { $regex: escapedSearch, $options: 'i' } },
 
       // Language and academic information
-      { 'language.instruction': { $regex: search, $options: 'i' } },
-      { 'language.requirements': { $regex: search, $options: 'i' } },
-      { 'duration.unit': { $regex: search, $options: 'i' } },
-      { 'tuition.currency': { $regex: search, $options: 'i' } },
-      { 'tuition.period': { $regex: search, $options: 'i' } },
+      { 'language.instruction': { $regex: escapedSearch, $options: 'i' } },
+      { 'language.requirements': { $regex: escapedSearch, $options: 'i' } },
+      { 'duration.unit': { $regex: escapedSearch, $options: 'i' } },
+      { 'tuition.currency': { $regex: escapedSearch, $options: 'i' } },
+      { 'tuition.period': { $regex: escapedSearch, $options: 'i' } },
 
       // Admission requirements
-      { 'admissionRequirements.academicRequirements': { $regex: search, $options: 'i' } },
-      { 'admissionRequirements.languageRequirements': { $regex: search, $options: 'i' } },
-      { 'admissionRequirements.documentsRequired': { $regex: search, $options: 'i' } },
-      { 'admissionRequirements.additionalRequirements': { $regex: search, $options: 'i' } },
+      { 'admissionRequirements.academicRequirements': { $regex: escapedSearch, $options: 'i' } },
+      { 'admissionRequirements.languageRequirements': { $regex: escapedSearch, $options: 'i' } },
+      { 'admissionRequirements.documentsRequired': { $regex: escapedSearch, $options: 'i' } },
+      { 'admissionRequirements.additionalRequirements': { $regex: escapedSearch, $options: 'i' } },
 
       // Contact information
-      { 'contactInfo.email': { $regex: search, $options: 'i' } },
-      { 'contactInfo.phone': { $regex: search, $options: 'i' } },
-      { 'contactInfo.website': { $regex: search, $options: 'i' } },
-      { 'contactInfo.admissionsOffice': { $regex: search, $options: 'i' } },
+      { 'contactInfo.email': { $regex: escapedSearch, $options: 'i' } },
+      { 'contactInfo.phone': { $regex: escapedSearch, $options: 'i' } },
+      { 'contactInfo.website': { $regex: escapedSearch, $options: 'i' } },
+      { 'contactInfo.admissionsOffice': { $regex: escapedSearch, $options: 'i' } },
 
       // Status and moderation fields (for admin searches)
-      { status: { $regex: search, $options: 'i' } },
-      { moderationStatus: { $regex: search, $options: 'i' } },
-      { moderationNotes: { $regex: search, $options: 'i' } }
+      { status: { $regex: escapedSearch, $options: 'i' } },
+      { moderationStatus: { $regex: escapedSearch, $options: 'i' } },
+      { moderationNotes: { $regex: escapedSearch, $options: 'i' } }
     ];
   }
 

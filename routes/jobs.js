@@ -7,6 +7,11 @@ const User = require('../models/User');
 const { protect, optionalAuth, checkUploadQuota, ownerOrAdmin, createRateLimit } = require('../middleware/auth');
 const { asyncHandler, validationError, notFoundError, authorizationError } = require('../middleware/errorHandler');
 
+// Helper function to escape regex special characters
+const escapeRegex = (str) => {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
 // Rate limiting for job creation
 const createJobRateLimit = createRateLimit(5, 60 * 60 * 1000, 'Too many job creation attempts');
 
@@ -69,42 +74,43 @@ router.get('/', [
   // Apply location filter and search query properly
   if (city && search) {
     // When both city filter and search are present, combine them with $and
+    const escapedSearch = escapeRegex(search);
     query.$and = [
       { 'location.city': { $regex: new RegExp(`^${city}$`, 'i') } },
       {
         $or: [
           // Core job fields
-          { title: { $regex: search, $options: 'i' } },
-          { role: { $regex: search, $options: 'i' } },
-          { description: { $regex: search, $options: 'i' } },
-          { requirements: { $regex: search, $options: 'i' } },
-          { benefits: { $regex: search, $options: 'i' } },
+          { title: { $regex: escapedSearch, $options: 'i' } },
+          { role: { $regex: escapedSearch, $options: 'i' } },
+          { description: { $regex: escapedSearch, $options: 'i' } },
+          { requirements: { $regex: escapedSearch, $options: 'i' } },
+          { benefits: { $regex: escapedSearch, $options: 'i' } },
 
           // Job type and work arrangement
-          { jobType: { $regex: search, $options: 'i' } },
-          { workLocation: { $regex: search, $options: 'i' } },
-          { status: { $regex: search, $options: 'i' } },
+          { jobType: { $regex: escapedSearch, $options: 'i' } },
+          { workLocation: { $regex: escapedSearch, $options: 'i' } },
+          { status: { $regex: escapedSearch, $options: 'i' } },
 
           // Location fields (excluding city since it's filtered separately)
-          { 'location.region': { $regex: search, $options: 'i' } },
-          { 'location.address': { $regex: search, $options: 'i' } },
+          { 'location.region': { $regex: escapedSearch, $options: 'i' } },
+          { 'location.address': { $regex: escapedSearch, $options: 'i' } },
 
           // Company information
-          { 'company.name': { $regex: search, $options: 'i' } },
-          { 'company.website': { $regex: search, $options: 'i' } },
-          { 'company.description': { $regex: search, $options: 'i' } },
+          { 'company.name': { $regex: escapedSearch, $options: 'i' } },
+          { 'company.website': { $regex: escapedSearch, $options: 'i' } },
+          { 'company.description': { $regex: escapedSearch, $options: 'i' } },
 
           // Contact information
-          { 'contact.email': { $regex: search, $options: 'i' } },
-          { 'contact.phone': { $regex: search, $options: 'i' } },
+          { 'contact.email': { $regex: escapedSearch, $options: 'i' } },
+          { 'contact.phone': { $regex: escapedSearch, $options: 'i' } },
 
           // Salary information
-          { 'salary.currency': { $regex: search, $options: 'i' } },
-          { 'salary.frequency': { $regex: search, $options: 'i' } },
+          { 'salary.currency': { $regex: escapedSearch, $options: 'i' } },
+          { 'salary.frequency': { $regex: escapedSearch, $options: 'i' } },
 
           // Moderation fields (for admin searches)
-          { moderationStatus: { $regex: search, $options: 'i' } },
-          { moderationNotes: { $regex: search, $options: 'i' } }
+          { moderationStatus: { $regex: escapedSearch, $options: 'i' } },
+          { moderationNotes: { $regex: escapedSearch, $options: 'i' } }
         ]
       }
     ];
@@ -113,40 +119,41 @@ router.get('/', [
     query['location.city'] = { $regex: new RegExp(`^${city}$`, 'i') };
   } else if (search) {
     // Only search query
+    const escapedSearch = escapeRegex(search);
     query.$or = [
       // Core job fields
-      { title: { $regex: search, $options: 'i' } },
-      { role: { $regex: search, $options: 'i' } },
-      { description: { $regex: search, $options: 'i' } },
-      { requirements: { $regex: search, $options: 'i' } },
-      { benefits: { $regex: search, $options: 'i' } },
+      { title: { $regex: escapedSearch, $options: 'i' } },
+      { role: { $regex: escapedSearch, $options: 'i' } },
+      { description: { $regex: escapedSearch, $options: 'i' } },
+      { requirements: { $regex: escapedSearch, $options: 'i' } },
+      { benefits: { $regex: escapedSearch, $options: 'i' } },
 
       // Job type and work arrangement
-      { jobType: { $regex: search, $options: 'i' } },
-      { workLocation: { $regex: search, $options: 'i' } },
-      { status: { $regex: search, $options: 'i' } },
+      { jobType: { $regex: escapedSearch, $options: 'i' } },
+      { workLocation: { $regex: escapedSearch, $options: 'i' } },
+      { status: { $regex: escapedSearch, $options: 'i' } },
 
       // Location fields
-      { 'location.city': { $regex: search, $options: 'i' } },
-      { 'location.region': { $regex: search, $options: 'i' } },
-      { 'location.address': { $regex: search, $options: 'i' } },
+      { 'location.city': { $regex: escapedSearch, $options: 'i' } },
+      { 'location.region': { $regex: escapedSearch, $options: 'i' } },
+      { 'location.address': { $regex: escapedSearch, $options: 'i' } },
 
       // Company information
-      { 'company.name': { $regex: search, $options: 'i' } },
-      { 'company.website': { $regex: search, $options: 'i' } },
-      { 'company.description': { $regex: search, $options: 'i' } },
+      { 'company.name': { $regex: escapedSearch, $options: 'i' } },
+      { 'company.website': { $regex: escapedSearch, $options: 'i' } },
+      { 'company.description': { $regex: escapedSearch, $options: 'i' } },
 
       // Contact information
-      { 'contact.email': { $regex: search, $options: 'i' } },
-      { 'contact.phone': { $regex: search, $options: 'i' } },
+      { 'contact.email': { $regex: escapedSearch, $options: 'i' } },
+      { 'contact.phone': { $regex: escapedSearch, $options: 'i' } },
 
       // Salary information
-      { 'salary.currency': { $regex: search, $options: 'i' } },
-      { 'salary.frequency': { $regex: search, $options: 'i' } },
+      { 'salary.currency': { $regex: escapedSearch, $options: 'i' } },
+      { 'salary.frequency': { $regex: escapedSearch, $options: 'i' } },
 
       // Moderation fields (for admin searches)
-      { moderationStatus: { $regex: search, $options: 'i' } },
-      { moderationNotes: { $regex: search, $options: 'i' } }
+      { moderationStatus: { $regex: escapedSearch, $options: 'i' } },
+      { moderationNotes: { $regex: escapedSearch, $options: 'i' } }
     ];
   }
 
