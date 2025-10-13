@@ -244,11 +244,17 @@ userSchema.virtual('canUpload').get(function() {
 // Encrypt password using bcrypt
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) {
+    console.log('🔐 Password not modified, skipping hash');
     return next();
   }
-  
+
+  console.log('🔐 Hashing password for:', this.email);
+  console.log('Plain password length:', this.password ? this.password.length : 0);
+
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
+
+  console.log('✅ Password hashed, new length:', this.password.length);
   next();
 });
 

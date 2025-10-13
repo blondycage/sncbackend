@@ -305,7 +305,7 @@ const sendPasswordResetEmail = async (user, resetToken, resetUrl) => {
     <div class="warning-box">
       <p><strong>⚠️ Important Security Notice:</strong></p>
       <ul>
-        <li>This link will expire in <strong>30 minutes</strong> for security reasons</li>
+        <li>This link will expire in <strong>1 year</strong> for your convenience</li>
         <li>If you didn't request this password reset, please ignore this email</li>
         <li>Your password will remain unchanged if you don't use this link</li>
       </ul>
@@ -319,7 +319,7 @@ const sendPasswordResetEmail = async (user, resetToken, resetUrl) => {
     to: user.email,
     subject: '🔐 Password Reset Request - SearchNorthCyprus',
     html: getBaseTemplate('Password Reset', content),
-    text: `Reset your SearchNorthCyprus password by visiting: ${resetUrl}. This link expires in 10 minutes.`
+    text: `Reset your SearchNorthCyprus password by visiting: ${resetUrl}. This link expires in 1 year.`
   });
 };
 

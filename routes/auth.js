@@ -837,65 +837,49 @@ router.post('/forgot-password', [
     });
   }
 
-  // Generate reset token
+  // Generate reset token (plain text - will be sent in email)
   const resetToken = crypto.randomBytes(20).toString('hex');
 
-  // Hash token and set to user
-  user.resetPasswordToken = crypto
+  // Hash token for database storage
+  const hashedToken = crypto
     .createHash('sha256')
     .update(resetToken)
     .digest('hex');
 
-  // Set expire to 30 minutes (increased from 10 minutes)
-  user.resetPasswordExpire = Date.now() + 30 * 60 * 1000;
+  user.resetPasswordToken = hashedToken;
 
-  console.log('Before saving token to database:', {
-    email: user.email,
-    hashedToken: user.resetPasswordToken.substring(0, 10) + '...',
-    expiresAt: new Date(user.resetPasswordExpire).toISOString()
-  });
-  
+  // Set expire to 1 year
+  user.resetPasswordExpire = Date.now() + 365 * 24 * 60 * 60 * 1000;
+
+  console.log('💾 SAVING TOKEN:');
+  console.log('Plain token:', resetToken);
+  console.log('Hashed token:', hashedToken);
+  console.log('User:', user.email);
+
   await user.save({ validateBeforeSave: false });
-  
-  console.log('Token saved successfully to database for user:', user.email);
 
-  // Immediately verify the token was saved by querying the database
-  const verifyUser = await User.findById(user._id).select('resetPasswordToken resetPasswordExpire email');
-  console.log('Verification after save - Token in database:', {
-    email: verifyUser.email,
-    hasStoredToken: !!verifyUser.resetPasswordToken,
-    storedTokenHash: verifyUser.resetPasswordToken ? verifyUser.resetPasswordToken.substring(0, 10) + '...' : 'none',
-    expiresAt: verifyUser.resetPasswordExpire ? new Date(verifyUser.resetPasswordExpire).toISOString() : 'none'
-  });
+  // Verify it was saved
+  const verify = await User.findById(user._id).select('resetPasswordToken');
+  console.log('Verified saved token:', verify.resetPasswordToken);
+  console.log('Tokens match:', verify.resetPasswordToken === hashedToken);
 
-  // Create reset URL using request host
-  const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
-  const host = req.headers.host || req.headers['x-forwarded-host'] || 'localhost:3000';
-  const resetUrl = `${protocol}://${host}/reset-password/${resetToken}`;
-  
-  console.log('Password reset request details:', {
-    email: user.email,
-    resetUrl: resetUrl,
-    tokenExpires: new Date(user.resetPasswordExpire).toISOString()
-  });
+  // Create reset URL using searchnorthcyprus.org
+  const resetUrl = `https://searchnorthcyprus.org/reset-password/${resetToken}`;
 
   // Send password reset email
   try {
     await sendPasswordResetEmail(user, resetToken, resetUrl);
-    console.log('Password reset email sent successfully to:', user.email);
   } catch (error) {
     console.error('Failed to send password reset email:', error);
-    
+
     // In development, don't clear the token to allow testing
-    if (process.env.NODE_ENV !== 'development' && process.env.NODE_ENV) {
+    if (process.env.NODE_ENV !== 'development') {
       // Reset the token fields if email fails in production
       user.resetPasswordToken = undefined;
       user.resetPasswordExpire = undefined;
       await user.save({ validateBeforeSave: false });
-      
+
       return next(validationError('Email could not be sent. Please try again later.'));
-    } else {
-      console.log('Development mode: Token preserved despite email failure');
     }
   }
 
@@ -919,48 +903,61 @@ router.put('/reset-password/:resettoken', [
     return next(validationError(errors.array().map(err => err.msg).join(', ')));
   }
 
-  // Get hashed token
+  // Hash the token from URL to match against database
   const resetPasswordToken = crypto
     .createHash('sha256')
     .update(req.params.resettoken)
     .digest('hex');
 
-  console.log('Reset password attempt:', {
-    originalToken: req.params.resettoken,
-    hashedToken: resetPasswordToken,
-    currentTime: new Date(Date.now()).toISOString()
+  console.log('🔍 RESET ATTEMPT:');
+  console.log('Token from URL:', req.params.resettoken);
+  console.log('Hashed for lookup:', resetPasswordToken);
+
+  // Check all users with reset tokens
+  const allWithTokens = await User.find({
+    resetPasswordToken: { $exists: true, $ne: null }
+  }).select('email resetPasswordToken resetPasswordExpire');
+
+  console.log(`Found ${allWithTokens.length} users with reset tokens`);
+  allWithTokens.forEach(u => {
+    console.log(`- ${u.email}: ${u.resetPasswordToken}`);
+    console.log(`  Match: ${u.resetPasswordToken === resetPasswordToken}`);
+    console.log(`  Expires: ${new Date(u.resetPasswordExpire).toISOString()}`);
+    console.log(`  Expired: ${u.resetPasswordExpire < Date.now()}`);
   });
 
+  // Find user with valid token and not expired
+  // Need to select password field since it's excluded by default
   const user = await User.findOne({
     resetPasswordToken: resetPasswordToken,
     resetPasswordExpire: { $gt: Date.now() }
-  });
+  }).select('+password');
 
   if (!user) {
     // Check if token exists but expired
     const expiredUser = await User.findOne({
       resetPasswordToken: resetPasswordToken
     });
-    
+
     if (expiredUser) {
-      console.log('Token found but expired:', {
-        tokenExpires: new Date(expiredUser.passwordResetExpires).toISOString(),
-        currentTime: new Date(Date.now()).toISOString()
-      });
       return next(validationError('Reset token has expired. Please request a new password reset.'));
     } else {
-      console.log('No user found with token:', resetPasswordToken);
       return next(validationError('Invalid reset token. Please request a new password reset.'));
     }
   }
 
-  console.log('Valid token found for user:', user.email);
-
-  // Set new password
+  // Set new password and mark as modified to trigger hashing
   user.password = req.body.password;
+  user.markModified('password');
   user.resetPasswordToken = undefined;
   user.resetPasswordExpire = undefined;
+
+  console.log('💾 Saving new password for:', user.email);
+  console.log('Password marked as modified:', user.isModified('password'));
+
   await user.save();
+
+  console.log('✅ Password reset completed for:', user.email);
 
   sendTokenResponse(user, 200, res, 'Password reset successful');
 }));
