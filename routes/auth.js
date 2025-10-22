@@ -927,11 +927,10 @@ router.put('/reset-password/:resettoken', [
   });
 
   // Find user with valid token and not expired
-  // Need to select password field since it's excluded by default
   const user = await User.findOne({
     resetPasswordToken: resetPasswordToken,
     resetPasswordExpire: { $gt: Date.now() }
-  }).select('+password');
+  });
 
   if (!user) {
     // Check if token exists but expired
@@ -946,18 +945,26 @@ router.put('/reset-password/:resettoken', [
     }
   }
 
-  // Set new password and mark as modified to trigger hashing
+  console.log('🔍 RESETTING PASSWORD FOR:', user.email);
+  console.log('New password:', req.body.password);
+
+  // Set new password - pre-save hook will automatically hash it
   user.password = req.body.password;
-  user.markModified('password');
   user.resetPasswordToken = undefined;
   user.resetPasswordExpire = undefined;
 
-  console.log('💾 Saving new password for:', user.email);
-  console.log('Password marked as modified:', user.isModified('password'));
+  console.log('Password is modified:', user.isModified('password'));
 
+  // Save the user - this will trigger pre-save hook to hash password
   await user.save();
 
   console.log('✅ Password reset completed for:', user.email);
+
+  // Verify password was hashed correctly
+  const verifyUser = await User.findById(user._id).select('+password');
+  console.log('🔍 Verifying saved password:');
+  console.log('Password in DB length:', verifyUser.password ? verifyUser.password.length : 0);
+  console.log('Password is hashed (starts with $2):', verifyUser.password ? verifyUser.password.startsWith('$2') : false);
 
   sendTokenResponse(user, 200, res, 'Password reset successful');
 }));

@@ -38,7 +38,7 @@ router.get('/', [
   optionalAuth,
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50'),
-  query('city').optional().isIn(NORTH_CYPRUS_CITIES).withMessage('Invalid city'),
+  query('city').optional().trim().isLength({ min: 1 }).withMessage('City filter must not be empty'),
   query('university').optional().trim().isLength({ min: 1 }).withMessage('University filter must not be empty'),
   query('availability').optional().isIn(['available', 'running_out', 'unavailable']).withMessage('Invalid availability status'),
   query('genderRestriction').optional().isIn(['male', 'female', 'mixed']).withMessage('Invalid gender restriction'),
@@ -49,11 +49,12 @@ router.get('/', [
   query('search').optional().trim().isLength({ min: 1 }).withMessage('Search query must not be empty'),
   query('sortBy').optional().isIn(['newest', 'oldest', 'price-low', 'price-high', 'views']).withMessage('Invalid sort option')
 ], asyncHandler(async (req, res, next) => {
-  console.log('🔍 GET ALL DORMITORIES - Request params:', req.query);
+  console.log('🔍 GET ALL DORMITORIES - Request query params:', req.query);
 
   // Check for validation errors
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    console.log('❌ Validation errors:', errors.array());
     return next(validationError(errors.array().map(err => err.msg).join(', ')));
   }
 
@@ -72,6 +73,8 @@ router.get('/', [
     sortBy = 'newest'
   } = req.query;
 
+  console.log('🎓 University param extracted:', university);
+
   // Build query object
   const query = {
     moderationStatus: 'approved',
@@ -84,7 +87,10 @@ router.get('/', [
   }
 
   if (university) {
-    query['university.name'] = new RegExp(university, 'i');
+    // Escape special regex characters and create case-insensitive regex
+    const escapedUniversity = university.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    query['university.name'] = new RegExp(escapedUniversity, 'i');
+    console.log('🎓 University filter:', { original: university, escaped: escapedUniversity, regex: query['university.name'] });
   }
 
   if (availability) {
@@ -150,6 +156,9 @@ router.get('/', [
     const total = await Dormitory.countDocuments(query);
 
     console.log(`✅ Found ${dormitories.length} dormitories out of ${total} total`);
+    if (university && dormitories.length > 0) {
+      console.log('🎓 Dormitories found with universities:', dormitories.map(d => d.university.name));
+    }
 
     res.json({
       success: true,
