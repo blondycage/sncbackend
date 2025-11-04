@@ -49,7 +49,7 @@ const listingSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Listing type is required'],
     enum: {
-      values: ['real_estate', 'vehicle', 'other'],
+      values: ['real_estate', 'vehicle', 'other', 'home_appliances'],
       message: '{VALUE} is not a valid listing type'
     },
     validate: {
@@ -57,9 +57,9 @@ const listingSchema = new mongoose.Schema({
         console.log('🔍 LISTING TYPE VALIDATION:', {
           value: v,
           type: typeof v,
-          isValid: ['real_estate', 'vehicle', 'other'].includes(v)
+          isValid: ['real_estate', 'vehicle', 'other', 'home_appliances'].includes(v)
         });
-        return ['real_estate', 'vehicle', 'other'].includes(v);
+        return ['real_estate', 'vehicle', 'other', 'home_appliances'].includes(v);
       },
       message: 'Listing type validation failed in custom validator'
     }
@@ -195,7 +195,7 @@ const listingSchema = new mongoose.Schema({
   // Status and moderation
   status: {
     type: String,
-    enum: ['active', 'inactive', 'sold', 'rented'],
+    enum: ['active', 'inactive', 'sold', 'rented', 'unavailable', 'available_soon'],
     default: 'active'
   },
   

@@ -22,7 +22,7 @@ router.get('/', [
   optionalAuth,
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50'),
-  query('listingType').optional().isIn(['real_estate', 'vehicle', 'other']).withMessage('Invalid listing type'),
+  query('listingType').optional().isIn(['real_estate', 'vehicle', 'other', 'home_appliances']).withMessage('Invalid listing type'),
   query('category').optional().isIn(['rental', 'sale', 'service']).withMessage('Invalid category'),
   query('city').optional().isIn(['nicosia', 'kyrenia', 'famagusta', 'morphou', 'lefka', 'lapithos', 'bellapais', 'bogaz', 'catalkoy', 'esentepe', 'iskele', 'karaoglanoglu', 'kayalar', 'ozankoy', 'tatlisu', 'yenibogazici', 'zeytinlik', 'dipkarpaz', 'karpas', 'alsancak', 'lapta', 'lefke', 'other', 'Nicosia', 'Kyrenia', 'Famagusta', 'Morphou', 'Lefke', 'İskele', 'Alsancak', 'Lapta', 'Çatalköy', 'Esentepe', 'Boğaz', 'Dipkarpaz']).withMessage('Invalid city'),
   query('minPrice').optional().isFloat({ min: 0 }).withMessage('Min price must be non-negative'),
@@ -221,6 +221,8 @@ router.get('/', [
       tags: listing.tags || [],
       price: listing.price,
       pricing_frequency: listing.pricing_frequency,
+      currency: listing.currency || 'USD',
+      status: listing.status || 'active',
       image_urls: listing.image_urls,
       created_at: listing.createdAt,
       owner: listing.owner,
@@ -274,8 +276,8 @@ router.post('/free', [
     .isLength({ min: 10, max: 2000 })
     .withMessage('Description must be between 10 and 2000 characters'),
   body('listingType')
-    .isIn(['real_estate', 'vehicle', 'other'])
-    .withMessage('Listing type must be one of: real_estate, vehicle, other'),
+    .isIn(['real_estate', 'vehicle', 'other', 'home_appliances'])
+    .withMessage('Listing type must be one of: real_estate, vehicle, other, home_appliances'),
   body('category')
     .isIn(['rental', 'sale', 'service'])
     .withMessage('Category must be one of: rental, sale, service'),
@@ -296,6 +298,14 @@ router.post('/free', [
   body('pricing_frequency')
     .isIn(['hourly', 'daily', 'weekly', 'monthly', 'yearly', 'fixed', 'negotiable', 'free'])
     .withMessage('Pricing frequency must be one of: hourly, daily, weekly, monthly, yearly, fixed, negotiable, free'),
+  body('currency')
+    .optional()
+    .isIn(['USD', 'EUR', 'GBP', 'TRY'])
+    .withMessage('Currency must be one of: USD, EUR, GBP, TRY'),
+  body('status')
+    .optional()
+    .isIn(['active', 'inactive', 'sold', 'rented', 'unavailable', 'available_soon'])
+    .withMessage('Status must be one of: active, inactive, sold, rented, unavailable, available_soon'),
   body('image_urls')
     .isArray({ min: 1 })
     .withMessage('At least one image URL is required'),
@@ -328,18 +338,20 @@ router.post('/free', [
     return next(validationError(errors.array().map(err => err.msg).join(', ')));
   }
 
-  const { 
-    title, 
-    description, 
+  const {
+    title,
+    description,
     listingType,
-    category, 
+    category,
     tags = [],
-    price, 
-    pricing_frequency, 
-    image_urls, 
+    price,
+    pricing_frequency,
+    currency = 'USD',
+    status = 'active',
+    image_urls,
     video_url,
-    contact = {}, 
-    location = {} 
+    contact = {},
+    location = {}
   } = req.body;
 
   console.log('🔍 EXTRACTED DATA:', {
@@ -409,6 +421,8 @@ router.post('/free', [
       tags: processedTags,
       price: Number(price),
       pricing_frequency,
+      currency: currency.toUpperCase(),
+      status,
       image_urls,
       ...(video_url ? { video_url } : {}),
       owner: req.user._id,
@@ -628,6 +642,8 @@ router.get('/free', [
     tags: listing.tags || [],
     price: listing.price,
     pricing_frequency: listing.pricing_frequency,
+    currency: listing.currency || 'USD',
+    status: listing.status || 'active',
     image_urls: listing.image_urls,
     created_at: listing.createdAt,
     owner: listing.owner,
@@ -709,6 +725,8 @@ router.get('/favorites', protect, asyncHandler(async (req, res) => {
       tags: listing.tags || [],
       price: listing.price,
       pricing_frequency: listing.pricing_frequency,
+      currency: listing.currency || 'USD',
+      status: listing.status || 'active',
       image_urls: listing.image_urls,
       created_at: listing.createdAt,
       owner: listing.owner,
@@ -764,6 +782,8 @@ router.get('/:id', [
   // Add fallback values for fields that might not exist in older listings
   listingData.listingType = listingData.listingType || 'other';
   listingData.tags = listingData.tags || [];
+  listingData.currency = listingData.currency || 'USD';
+  listingData.status = listingData.status || 'active';
   
   if (req.user) {
     // Check if listing is favorited by current user
@@ -804,7 +824,15 @@ router.put('/:id', [
   body('pricing_frequency')
     .optional()
     .isIn(['hourly', 'daily', 'weekly', 'monthly', 'yearly', 'fixed', 'negotiable', 'free'])
-    .withMessage('Pricing frequency must be one of: hourly, daily, weekly, monthly, yearly, fixed, negotiable, free')
+    .withMessage('Pricing frequency must be one of: hourly, daily, weekly, monthly, yearly, fixed, negotiable, free'),
+  body('currency')
+    .optional()
+    .isIn(['USD', 'EUR', 'GBP', 'TRY'])
+    .withMessage('Currency must be one of: USD, EUR, GBP, TRY'),
+  body('status')
+    .optional()
+    .isIn(['active', 'inactive', 'sold', 'rented', 'unavailable', 'available_soon'])
+    .withMessage('Status must be one of: active, inactive, sold, rented, unavailable, available_soon')
 ], asyncHandler(async (req, res, next) => {
   // Check for validation errors
   const errors = validationResult(req);
@@ -825,13 +853,18 @@ router.put('/:id', [
 
   // Update fields
   const updateFields = {};
-  const allowedFields = ['title', 'description', 'category', 'price', 'pricing_frequency', 'contact', 'location'];
-  
+  const allowedFields = ['title', 'description', 'category', 'price', 'pricing_frequency', 'currency', 'status', 'contact', 'location'];
+
   allowedFields.forEach(field => {
     if (req.body[field] !== undefined) {
       updateFields[field] = req.body[field];
     }
   });
+
+  // Ensure currency is uppercase if provided
+  if (updateFields.currency) {
+    updateFields.currency = updateFields.currency.toUpperCase();
+  }
 
   // Validate pricing frequency if both category and pricing_frequency are being updated
   if (updateFields.category || updateFields.pricing_frequency) {
@@ -943,10 +976,11 @@ router.get('/user/me', [
     tags: listing.tags || [],
     price: listing.price,
     pricing_frequency: listing.pricing_frequency,
+    currency: listing.currency || 'USD',
+    status: listing.status || 'active',
     image_urls: listing.image_urls,
     created_at: listing.createdAt,
     updated_at: listing.updatedAt,
-    status: listing.status,
     moderationStatus: listing.moderationStatus,
     views: listing.views,
     is_paid: listing.is_paid,

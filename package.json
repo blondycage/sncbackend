@@ -14,7 +14,8 @@
     "db:clear": "node scripts/clearDB.js",
     "jobs:seed": "node scripts/seedJobs.js",
     "jobs:clear": "node -e \"require('./scripts/seedJobs.js').clearJobs()\"",
-    "promotions:seed": "node scripts/seedPromotions.js"
+    "promotions:seed": "node scripts/seedPromotions.js",
+    "home-appliances:seed": "node scripts/seedHomeAppliances.js"
   },
   "keywords": [
     "api",
